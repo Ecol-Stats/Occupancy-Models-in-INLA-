@@ -265,7 +265,6 @@ stk <- inla.stack(data=list(Ycounts = df_INLA$counts,
 
 formula = inla.mdata(cbind(Ycounts,Ncounts),Int_det, day, day2) ~ 
   -1 + Int_occ + scale_year + 
-  #f(time, model =  "iid") + 
   f(spatialfield, model=spde) 
 
 model <- inla(formula, #the formula
@@ -363,105 +362,79 @@ model2 <- inla(formula2, #the formula
 ```
 
 
-# Model 3: Regional varying time trend
+<!-- # Model 3: Regional varying time trend -->
 
-Model for occurrences:
-$$
-\text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t 
-$$
-Model for detection
-$$
-\text{logit}(p_s) = \alpha_0 + \alpha X(s)
-$$
+<!-- Model for occurrences: -->
+<!-- $$ -->
+<!-- \text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t  -->
+<!-- $$ -->
+<!-- Model for detection -->
+<!-- $$ -->
+<!-- \text{logit}(p_s) = \alpha_0 + \alpha X(s) -->
+<!-- $$ -->
 
-```{r}
-#| cache: true
-#| label: model_bcr
-# bcr model ---------------------------------------------------------------
-iset_sp <- inla.spde.make.index(name = "spatialfield",
-                                n.spde =  spde$n.spde)
-A_sp <- inla.spde.make.A(mesh = mesh, 
-                         loc = cbind(df_INLA$x, df_INLA$y))
-stk3 <- inla.stack(data=list(Ycounts = df_INLA$counts, 
-                            Ncounts = df_INLA$n_samples,
-                            day = df_INLA$day,
-                            day2 = df_INLA$day2,
-                            score = df_INLA$score,
-                            Int_det = 1), #the response
-                  A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates)
-                  effects=list(c(list(Int_occ=1), #the Intercept
-                                 iset_sp),  #the spatial index
-                               #the covariates
-                               list(scale_year = df_INLA$scale_year,
-                                    bcr_idx = df_INLA$bcr_idx,
-                                    
-                                    time = df_INLA$year-1999)), 
-                  #this is a quick name so yo can call upon easily
-                  tag='dat')
+<!-- ```{r} -->
+<!-- #| cache: true -->
+<!-- #| label: model_bcr -->
+<!-- # bcr model --------------------------------------------------------------- -->
+<!-- iset_sp <- inla.spde.make.index(name = "spatialfield", -->
+<!--                                 n.spde =  spde$n.spde) -->
+<!-- A_sp <- inla.spde.make.A(mesh = mesh,  -->
+<!--                          loc = cbind(df_INLA$x, df_INLA$y)) -->
+<!-- stk3 <- inla.stack(data=list(Ycounts = df_INLA$counts,  -->
+<!--                             Ncounts = df_INLA$n_samples, -->
+<!--                             day = df_INLA$day, -->
+<!--                             day2 = df_INLA$day2, -->
+<!--                             score = df_INLA$score, -->
+<!--                             Int_det = 1), #the response -->
+<!--                   A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates) -->
+<!--                   effects=list(c(list(Int_occ=1), #the Intercept -->
+<!--                                  iset_sp),  #the spatial index -->
+<!--                                #the covariates -->
+<!--                                list(scale_year = df_INLA$scale_year, -->
+<!--                                     bcr_idx = df_INLA$bcr_idx, -->
 
-
-formula3 = inla.mdata(cbind(Ycounts,Ncounts),Int_det, 
-                      day, day2) ~ 
-  -1 + Int_occ + 
-  #f(time, model =  "iid") + 
-  f(bcr_idx,scale_year, model="iid", values = sort(unique(all_bcr_idx)))  +
-  f(spatialfield, 
-    model = spde)
-
-model3 <- inla(formula3, #the formula
-               data=inla.stack.data(stk3),  #the data stack
-               family= '0binomialS',   #which family the data comes from
-               control.fixed =  list(prec = 1, prec.intercept = 1),
-               control.predictor=list(A=inla.stack.A(stk3),
-                                      compute=TRUE),  #compute gives you the marginals of the linear predictor
-               control.compute = list(dic = TRUE, waic = TRUE, 
-                                      config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
-               # verbose = TRUE,
-               control.inla = list(int.strategy = "eb"),#, cmin =0), 
-               control.family = list(control.link = list(model = "logit"), 
-                                     link.simple = "logit",
-                                     hyper = list(beta1 = list(param = c(0,1),
-                                                               initial = 0.5),
-                                                  beta2 = list(param = c(0,1),
-                                                               initial = 0),
-                                                  beta3 = list(param  = c(0,1),
-                                                               initial= 0),
-                                                  beta4 = list(param  = c(0,1),
-                                                               initial= 0))))
+<!--                                     time = df_INLA$year-1999)),  -->
+<!--                   #this is a quick name so yo can call upon easily -->
+<!--                   tag='dat') -->
 
 
+<!-- formula3 = inla.mdata(cbind(Ycounts,Ncounts),Int_det,  -->
+<!--                       day, day2) ~  -->
+<!--   -1 + Int_occ +  -->
+<!--   #f(time, model =  "iid") +  -->
+<!--   f(bcr_idx,scale_year, model="iid", values = sort(unique(all_bcr_idx)))  + -->
+<!--   f(spatialfield,  -->
+<!--     model = spde) -->
+
+<!-- model3 <- inla(formula3, #the formula -->
+<!--                data=inla.stack.data(stk3),  #the data stack -->
+<!--                family= '0binomialS',   #which family the data comes from -->
+<!--                control.fixed =  list(prec = 1, prec.intercept = 1), -->
+<!--                control.predictor=list(A=inla.stack.A(stk3), -->
+<!--                                       compute=TRUE),  #compute gives you the marginals of the linear predictor -->
+<!--                control.compute = list(dic = TRUE, waic = TRUE,  -->
+<!--                                       config = TRUE), #model diagnostics and config = TRUE gives you the GMRF -->
+<!--                # verbose = TRUE, -->
+<!--                control.inla = list(int.strategy = "eb"),#, cmin =0),  -->
+<!--                control.family = list(control.link = list(model = "logit"),  -->
+<!--                                      link.simple = "logit", -->
+<!--                                      hyper = list(beta1 = list(param = c(0,1), -->
+<!--                                                                initial = 0.5), -->
+<!--                                                   beta2 = list(param = c(0,1), -->
+<!--                                                                initial = 0), -->
+<!--                                                   beta3 = list(param  = c(0,1), -->
+<!--                                                                initial= 0), -->
+<!--                                                   beta4 = list(param  = c(0,1), -->
+<!--                                                                initial= 0)))) -->
 
 
-```
-
-```{r}
-# samples
-# prediction dataset
 
 
-samples = inla.posterior.sample(1000, model)
-samples2 = inla.posterior.sample(1000, model2)
-samples3 = inla.posterior.sample(1000, model3)
+<!-- ``` -->
 
 
-load(here::here('data_SCV_model/pred-coordinates.rda'))
-coords.0.sf <- st_as_sf(as.data.frame(coords.0),
-                        coords = c("X", "Y"),
-                        crs = st_crs(coords.sf))
-
-
-aa = (st_intersects(coords.0.sf, bcrs.ne.grouped, sparse = FALSE))
-idx = apply(aa,1,function(x) 
-   ifelse((!all(is.na(x))), which((x)),NA))
-coords.0.sf$bcr  = bcrs.ne.grouped$BCR[idx]
-coords.0.sf$bcr_idx  = idx
-
-
-A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
-
-```
-
-# Model 4: Regional varying time trend with CAR str
+# Model 3: Regional varying time trend with CAR str
 
 Model for occurrences:
 $$
@@ -545,7 +518,6 @@ model4 <- inla(formula4, #the formula
 
 samples = inla.posterior.sample(1000, model)
 samples2 = inla.posterior.sample(1000, model2)
-samples3 = inla.posterior.sample(1000, model3)
 samples4 = inla.posterior.sample(1000, model4)
 
 
@@ -575,10 +547,12 @@ A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
 
 
 
-cbind(c(model$waic$waic,model2$waic$waic,model3$waic$waic,model4$waic$waic),
-      c(model$dic$dic,model2$dic$dic,model3$dic$dic,model4$dic$dic),
-      c(model$mlik[1,1],model2$mlik[1,1],model3$mlik[1,1],model4$mlik[1,1]))
-
+tt = cbind(c(model$waic$waic,model2$waic$waic,model4$waic$waic),
+      c(model$dic$dic,model2$dic$dic,model4$dic$dic),
+      c(model$mlik[1,1],model2$mlik[1,1],model4$mlik[1,1]))
+rownames(tt) = paste("Model",1:3)
+colnames(tt) = c("WAIC","DIC","MLIK")
+kable(tt,  digits = 2) 
 
 ```
 
@@ -588,14 +562,13 @@ cbind(c(model$waic$waic,model2$waic$waic,model3$waic$waic,model4$waic$waic),
 ```{r}
 tab1 = rbind(-model$summary.fixed[,c(1,3,5)],
       -model2$summary.fixed[,c(1,3,5)],
-      -model3$summary.fixed[,c(1,3,5)],
       -model4$summary.fixed[,c(1,3,5)])
 
 kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
   index = c("Model 1" = 2, "Model 2" = 1, "Model 3" = 1)
 )
 
-xtable::xtable(tab1,digits=2)
+#xtable::xtable(tab1,digits=2)
 
 ```
 
@@ -607,8 +580,7 @@ svc1 = inla.posterior.sample.eval(function(...) -scale_year,
                                   samples)
 svc2 = inla.posterior.sample.eval(function(x) -(A_pred %*% i2)[,1], 
                                  samples2)
-svc3 = inla.posterior.sample.eval(function(x) -(bcr_idx[coords.0.sf$bcr_idx]), 
-                                  samples3)
+
 svc4 = inla.posterior.sample.eval(function(x) -(bcr_idx[coords.0.sf$bcr_idx]), 
                                   samples4)
 
@@ -621,9 +593,6 @@ dd = data.frame(x = coords.0[,1],
                 z1_2 = apply(svc2,1,mean),
                 q1_2 = apply(svc2,1,quantile,0.025),
                 q2_2 = apply(svc2,1,quantile,0.975),
-                z1_3 = apply(svc3,1,mean),
-                q1_3 = apply(svc3,1,quantile,0.025, na.rm =T),
-                q2_3 = apply(svc3,1,quantile,0.975, na.rm =T),
                 z1_4 = apply(svc4,1,mean),
                 q1_4 = apply(svc4,1,quantile,0.025, na.rm =T),
                 q2_4 = apply(svc4,1,quantile,0.975, na.rm =T)) 
@@ -634,9 +603,6 @@ dd = dd %>%
   mutate(check2 = case_when( q1_2>=0 & q2_2>=0 ~ 1,
                              q1_2<0 & q2_2<0 ~ -1,
                              q1_2<0 & q2_2>0 ~ 0)) %>%
-  mutate(check3 = case_when( q1_3>=0 & q2_3>=0 ~ 1,
-                             q1_3<0 & q2_3<0 ~ -1,
-                             q1_3<0 & q2_3>0 ~ 0)) %>%
   mutate(check4 = case_when( q1_4>=0 & q2_4>=0 ~ 1,
                              q1_4<0 & q2_4<0 ~ -1,
                              q1_4<0 & q2_4>0 ~ 0))
@@ -668,18 +634,6 @@ geom_sf(data = within.sf.list[[which(sp.names == curr.sp)]], alpha = 0, col = 'b
        title = 'Model 2') + theme_maps + theme(text=element_text(family="serif", size=20),
                                                legend.text = element_text(size=16))+
   guides(colour = guide_colourbar(barheight = unit(10, "cm")))
-p3 =  ggplot() +
-  geom_stars(data = pred.stars, aes(x = x, y = y, fill = z1_3), interpolate = TRUE) +
-  #geom_sf(data = east.us, alpha = 0, col = 'grey') +
-  geom_sf(data = bcrs.ne.grouped, alpha = 0, color = 'grey') +
-  geom_sf(data = within.sf.list[[which(sp.names == curr.sp)]], alpha = 0, col = 'black') + 
-  scale_fill_scico(name= "Mean \ntemporal trend" , limits = lims) + 
-  theme_bw(base_size = 18) +
-  labs(x = "", y
-       = "", fill = "", 
-       title = 'Model 3') + theme_maps + theme(text=element_text(family="serif", size=20),
-                                               legend.text = element_text(size=16))+
-  guides(colour = guide_colourbar(barheight = unit(10, "cm")))
 
 p4 =  ggplot() +
   geom_stars(data = pred.stars, aes(x = x, y = y, fill = z1_4), interpolate = TRUE) +
@@ -690,11 +644,11 @@ p4 =  ggplot() +
   theme_bw(base_size = 18) +
   labs(x = "", y
        = "", fill = "", 
-       title = 'Model 3') + theme_maps + theme(text=element_text(family="serif", size=20),
+       title = 'Model 4') + theme_maps + theme(text=element_text(family="serif", size=20),
                                                legend.text = element_text(size=16))+
   guides(colour = guide_colourbar(barheight = unit(10, "cm")))
 
-p1 + p2  + p4 + plot_layout(ncol = 3, guides = "collect")& theme(legend.position = 'right') 
+p1 + p2   + p4 + plot_layout(ncol = 3, guides = "collect")& theme(legend.position = 'right') 
   # plot_annotation(title = 'Mean time trend',
   #                 subtitle = 'logit scale')+
 ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
@@ -743,7 +697,7 @@ p22 = ggplot() +
        title = 'Model 2') + theme_maps + theme(text=element_text(family="serif", size=20),
                                                legend.text = element_text(size=16))
 
-p33 = ggplot() +
+p44 = ggplot() +
   geom_stars(data = pred.stars, aes(x = x, y = y, fill = factor(check4,
                                                                 levels = c(-1,0,1),
                                                                 labels = c("negative","0","positive"))), 
@@ -763,7 +717,8 @@ p33 = ggplot() +
        title = 'Model 3') + theme_maps + theme(text=element_text(family="serif", size=20),
                                                legend.text = element_text(size=16))
 
-p1 + p2 + p4 + p11 +p22 +p33 + plot_layout(ncol = 3,  guides = "collect") +
+
+p1 + p2 + p4 + p11 +p22 +p44 + plot_layout(ncol = 3,  guides = "collect") +
   plot_annotation(title = "")& theme(legend.position = 'right') 
 
 ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
@@ -771,7 +726,7 @@ ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
 ```
 
 ```{r}
-pred.stars.long = dd |> dplyr::select(c(x,y,z1_1,z1_2,z1_4,check1,check2,check3)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
+pred.stars.long = dd |> dplyr::select(c(x,y,z1_1,z1_2,z1_4,check1,check2,check4)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
 trend1 <-  dd |> 
   dplyr::select(c(x,y,z1_1,z1_2,z1_4)) |>
   terra::rast() |> 
@@ -881,9 +836,9 @@ Predictions over the whole domain of the linear predictor for occurrence and pro
 
 ```{r}
 # predict  occurrence probability -----------------------------------------
- -1 + Int_occ + scale_year + 
-  #f(time, model =  "iid") + 
-  f(spatialfield, model=spde) 
+# -1 + Int_occ + scale_year + 
+#  #f(time, model =  "iid") + 
+#  f(spatialfield, model=spde) 
 
 
 func = function(..., year)
