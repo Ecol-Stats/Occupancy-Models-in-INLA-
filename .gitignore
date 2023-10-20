@@ -7,6 +7,9 @@ docs/paper/_freeze/
 docs/paper/*.log
 docs/paper/*.aux
 docs/paper/*.tex
+docs/paper/*.pdf
+docs/paper/*.html
+
 
 
 
