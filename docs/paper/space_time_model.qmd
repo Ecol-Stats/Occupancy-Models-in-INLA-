@@ -28,7 +28,7 @@ library(spOccupancy)
 library(scico)
 library(patchwork)
 library(kableExtra)
-library(raster)
+  library(raster)
 library(sf)
 
 rm(list = ls())
@@ -83,10 +83,10 @@ data = data.frame(revi.data$coords,
   mutate(time = as.numeric(as.factor(year)))
 
 mday = data.frame(revi.data$coords,
-                  apply(revi.data$det.covs$day,c(1,2), sum, na.rm = T)) %>%
+                  apply(revi.data$det.covs$day,c(1,2), mean, na.rm = T)) %>%
   pivot_longer(-c(X,Y))
 mtod = data.frame(revi.data$coords,
-                  apply(revi.data$det.covs$tod,c(1,2), sum, na.rm = T)) %>%
+                  apply(revi.data$det.covs$tod,c(1,2), mean, na.rm = T)) %>%
   pivot_longer(-c(X,Y))
 nsamples = data.frame(revi.data$coords, apply(revi.data$y,c(1,2), 
                                               function(x) sum(!is.na(x)))) %>%
@@ -98,12 +98,12 @@ data = data %>%
          mtod = mtod$value) %>%
   dplyr::filter(nvisits >0)
 
-data = data %>%  mutate(scale_mday = scale(mday),
-                        scale_mtod = scale(mtod),
-                        scale_time = scale(time),
-                        scale_elev = scale(elev)) %>%
+data = data %>%  mutate(scale_mday = as.vector(scale(mday)),
+                        scale_mtod = as.vector(scale(mtod)),
+                        scale_time = as.vector(scale(time)),
+                        scale_elev = as.vector(scale(elev))) %>%
   mutate(scale_elev2 = scale_elev^2,
-         scale_mday2 = scale_mday^2,
+         scale_mday2 = as.vector(scale(mday^2)),
          int_detection = 1)
 
 
@@ -171,7 +171,8 @@ yy = c(1:9)
 data1 = data %>% dplyr::filter(time %in% yy ) %>%
   mutate(random = seq_along(X))
 
-formula1 = inla.mdata(cbind(counts,nvisits),int_detection) ~ 
+formula1 = inla.mdata(cbind(counts,nvisits),
+                      int_detection, scale_mday, scale_mday2) ~ 
   f(group_elev,model = "rw2", values = val_elev) + 
   f(site, model =  "iid") + 
   f(time, model = "iid")
@@ -264,12 +265,14 @@ stk <- inla.stack(data=list(Ycounts = data1$counts,
                   tag='dat')
 
 formula3_2 <- inla.mdata(cbind(Ycounts,Ncounts),
-                         Int_det) ~ 
+                         Int_det, scale_mday, scale_mday2
+                         ) ~ 
   f(group_elev, model = "rw2", values = val_elev) + 
   -1 + Int_occ +  #time + 
   f(time, model = "iid") + 
   f(spatialfield, model=spde) 
 
+eps=1e-8 
 time2 = system.time(model3_2 <- inla(formula3_2, 
                                      data=inla.stack.data(stk),  
                                      family= '0binomialS',  
@@ -278,16 +281,24 @@ time2 = system.time(model3_2 <- inla(formula3_2,
                                                             compute=TRUE), 
                                      control.compute = list(dic = TRUE, waic = TRUE, 
                                                             config = TRUE), 
-                                     verbose = FALSE,
+                                     verbose = F,
+                                    #control.inla=list(cmin=eps, b.strategy="keep"),
+
                                      control.family = list(control.link = list(model = "logit"), 
                                                            link.simple = "logit",
-                                                           hyper = list(beta1 = list(param = c(0,1),
-                                                                                     initial = -1),
-                                                                        beta2 = list(param = c(0,1)),
-                                                                        beta3 = list(param = c(0,1))
-                                                           ))))
+                                                           hyper = list(beta1 = list(param = c(0,1/3), 
+                                                                                   initial = 0),
+                                                                      beta2 = list(param = c(0,1/3)),
+                                                                      beta3 = list(param = c(0,1/3)),
+                                                                      beta4 = list(param = c(0,1/3)),
+                                                                      beta5 = list(param = c(0,1/3))))))
+
+
+
 
 model3_2$summary.hyperpar
+plot_inla_effects(model3_2$summary.random$group_elev)
+
 ```
 
 
@@ -344,7 +355,7 @@ h.spec <- list(rho = list(prior = 'pc.cor0', param = c(0.5, 0.3)))
 
 
 formula3_3 <- inla.mdata(cbind(Ycounts,Ncounts),
-                         Int_det) ~ 
+                         Int_det, scale_mday, scale_mday2) ~ 
   -1   + Int_occ + 
   f(group_elev, model = "rw2", values = val_elev) + 
   f(spatialfield, 
@@ -360,27 +371,28 @@ time3 = system.time(model3_3 <- inla(formula3_3, #the formula
                                                             compute=TRUE),  #compute gives you the marginals of the linear predictor
                                      control.compute = list(dic = TRUE, waic = TRUE, 
                                                             config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
-                                     verbose = FALSE,
-                                     control.inla = list(int.strategy = "eb"),
+                                    
+
+                                     verbose = F,
                                      control.family = list(control.link = list(model = "logit"), 
-                                                           link.simple = "logit",
-                                                           hyper = list(beta1 = list(param = c(0,1),
-                                                                                     initial = 0),
-                                                                        beta2 = list(param = c(0,1),
-                                                                                     initial = 0),
-                                                                        beta3 = list(param = c(0,1),
-                                                                                     initial = 0),
-                                                                        beta4 = list(param = c(0,1),
-                                                                                     initial = 0)
-                                                           ))))
+                                                                                    link.simple = "logit",
+                                                           hyper = list(beta1 = list(param = c(0,10), 
+                                                                                   initial = 0),
+                                                                      beta2 = list(param = c(0,10)),
+                                                                      beta3 = list(param = c(0,10)),
+                                                                      beta4 = list(param = c(0,10)),
+                                                                      beta5 = list(param = c(0,10))))))
 
 
+model3_3$summary.hyperpar
+plot_inla_effects(model3_3$summary.random$group_elev)
 ```
 
 
 # Results and Predictions
 ```{r}
-# posterior samples -------------------------------------------------------
+#| label: sample
+#| # posterior samples -------------------------------------------------------
 
 sample1 = inla.posterior.sample(1000, model1)
 sample2 = inla.posterior.sample(1000, model3_2)
@@ -407,7 +419,6 @@ kable(table)
 ### elevation effect 
 First we look at the effect of elevation in the three fitted models
 
-#+ plots
 ```{r}
 data.frame(rbind(model1$summary.random$group_elev,
                  model3_2$summary.random$group_elev,
@@ -437,7 +448,7 @@ func1 = function(...)
            group_elev[as.numeric(as.factor(pred1$group_elev))] +
            time[pred1$time] 
   )
-  rand = rnorm(length(pred1$group_elev), 0, 1/sqrt(theta[3]))
+  rand = rnorm(length(pred1$group_elev), 0, 1/sqrt(theta[5]))
   aa + rand
 }
 func3_2 = function(...)
@@ -542,19 +553,46 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
 ## predict detection
 
 ```{r}
+
+range(data$mday)
+time = seq(min(data$mday), max(data$mday))
+
+
+t1 = (time-mean(data$mday))/sd(data$mday)
+t2 = (time^2-mean(data$mday^2))/sd(data$mday^2)
 func_det = function(...)
 {
-  theta[1] 
+  theta[1] + theta[2] * t1 + theta[3] * t2
 }
 
 det1 = inla.posterior.sample.eval(func_det, sample1)
 det2 = inla.posterior.sample.eval(func_det, sample2)
 det3 = inla.posterior.sample.eval(func_det, sample3)
 
-dd = data.frame(p1 = apply(inla.link.logit(det1, inverse = T),1,mean),
-                p2 = apply(inla.link.logit(det2, inverse = T),1,mean),
-                p3 = apply(inla.link.logit(det3, inverse = T),1,mean))
-head(dd)            
+d1 = data.frame(time = time,
+                m1 = apply(inla.link.logit(det1,inverse = T) , 1,mean),
+                q11 = apply(inla.link.logit(det1,inverse = T) , 1,quantile, 0.05),
+                q12 = apply(inla.link.logit(det1,inverse = T) , 1,quantile, 0.95),
+                
+                 m2 = apply(inla.link.logit(det2,inverse = T) , 1,mean),
+                q21 = apply(inla.link.logit(det2,inverse = T) , 1,quantile, 0.05),
+                q22 = apply(inla.link.logit(det2,inverse = T) , 1,quantile, 0.95),
+               
+                m3 = apply(inla.link.logit(det2,inverse = T) , 1,mean),
+                q31 = apply(inla.link.logit(det3,inverse = T) , 1,quantile, 0.05),
+                q32 = apply(inla.link.logit(det3,inverse = T) , 1,quantile, 0.95))
+              
+d1 %>% ggplot() + 
+  geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0.3, fill = "red") +
+   geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0.3, fill = "blue") +
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") +
+  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
+  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
+
+ggplot() + geom_point(data = data, aes(x = mtod,  y = counts/nvisits))  +
+  geom_smooth(data = data, aes(x = mtod, y = counts/nvisits))
+
+     
 ```
 
 
