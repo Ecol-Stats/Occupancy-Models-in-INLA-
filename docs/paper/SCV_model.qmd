@@ -557,6 +557,67 @@ kable(tt,  digits = 2)
 ```
 
 
+### LGOCV
+
+```{r}
+df_sf <- df_INLA %>% mutate(id = 1:nrow(df_INLA)) %>% st_as_sf(coords =c("x","y"))
+
+# create buffer of size 300 (based on estimated range) centred at each site
+
+buffer_25 <- st_buffer(df_sf, dist = 500) 
+
+# empty lists to include the indexes of the leave-out-group for each observation i
+I_i <- list()
+
+# loop though each observation and store the leave-out-group based on the buffer
+for( i in 1:nrow(df_sf)){
+
+# Temporal filtering of data within a 2 years of span of  observation i
+ df_sf_subset <- df_sf %>% 
+   filter( between(year,left = df_sf$year[i]-3, right = df_sf$year[i]+3)) 
+# Spatial filtering of the observations that are within the buffer of the ith observation
+Buffer_i <-df_sf_subset %>% st_intersects(buffer_25[i,],sparse = FALSE) %>% # identify 
+   unlist()
+
+# obtain the indexes of the leave out group
+I_i[[i]] <-  df_sf_subset[Buffer_i,] %>%  pull(id)
+
+}
+
+
+ggplot()+geom_sf(data=df_sf)+
+  facet_wrap(~year)+
+  geom_sf(data=df_sf[I_i[[10000]],],color="orange")+
+  geom_sf(data = df_sf[10000,],colour="purple") +
+  geom_sf(data=buffer_25[10000,],color="red",alpha=0) 
+  
+
+
+loocv_m2 <- inla.group.cv(result = model2,groups = I_i)
+
+ULOOCV = mean(log(loocv_m1$cv[1:n]))
+
+filter_and_plot <- function(i, df_sf, buffer_25, time= 1) {
+  df_sf_subset <- df_sf %>% 
+    filter(between(year, left = df_sf$year[i]-time, right = df_sf$year[i]+time)) 
+  
+  Buffer_i <- df_sf_subset %>% st_intersects(buffer_25[i,], sparse = FALSE) %>% unlist()
+  
+  I_i <- df_sf_subset[Buffer_i,] %>% pull(id)
+  
+  return(I_i)
+}
+
+I_i <- lapply(1:nrow(df_sf), function(i) filter_and_plot(i, df_sf, buffer_25,time=2))
+
+
+```
+
+
+
+
+
+
 ## Fixed effect
 
 ```{r}
