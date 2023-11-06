@@ -213,11 +213,10 @@ ggplot() + inlabru::gg(mesh) +
   geom_point(data = data, aes(X,Y), pch = ".") +
   coord_equal() + theme_maps
 
-bbox = data |> st_as_sf(coords = c("X","Y")) |> st_bbox()
 
 spde <- inla.spde2.pcmatern(
   mesh = mesh, 
-  prior.range = c(1, 0.01),
+  prior.range = c(4, 0.5),
   prior.sigma = c(1, 0.5)) 
 
 ```
