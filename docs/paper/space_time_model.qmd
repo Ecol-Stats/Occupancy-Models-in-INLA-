@@ -4,6 +4,8 @@ format:
   html:
     embed-resources: true
 editor: source
+  markdown: 
+    wrap: 72
 editor_options: 
   chunk_output_type: console
 bibliography: references.bib
@@ -14,9 +16,9 @@ execute:
   collapse: true
 ---
 
-# Introduction 
+# Introduction
 
-In this document we show how to fit a space time occupacy  model for the dataset "hbefTrends" in the 'spOccupacy'  library.
+In this document we show how to fit a space time occupacy model for the dataset "hbefTrends" in the 'spOccupacy' library.
 
 ```{r setup}
 #| message: false
@@ -60,8 +62,9 @@ theme_maps = theme(axis.line=element_blank(),
 ```
 
 # Load and prepare the data
+
 We first load the data and select the species of interest. Here we choose BTBW which is not one of the rare species present in the dataset.
- 
+
 Afterwards we prepare the data in the format that is required by the INLA library
 
 ```{r}
@@ -116,7 +119,6 @@ data %>% ggplot() +
 
 ```
 
-
 ```{r}
 elev_raster= raster::rasterFromXYZ(data.frame(x = hbefElev$Easting/1000,
                                               y = hbefElev$Northing/1000,
@@ -149,22 +151,13 @@ val_elev = sort(unique(xx))
 
 ```
 
-
 # Model fit
 
+## Model 1
 
-## Model 1 
-
-
- This is  a separable space time model with linear predictos
-$$
+This is a separable space time model with linear predictos $$
 \eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + f_3(s)
-$$
-where
-$f_1(\text{elev})$ is a smooth (RW2) effect of the elevation
-$f_2(t)$ is a AR1 effect of time
-$f_3(s)$ is an IID effect of location
-
+$$ where $f_1(\text{elev})$ is a smooth (RW2) effect of the elevation $f_2(t)$ is a AR1 effect of time $f_3(s)$ is an IID effect of location
 
 ```{r}
 yy = c(1:9)
@@ -199,6 +192,46 @@ time0 = system.time(model1 <- inla(formula1,
 
 ```
 
+### CV
+
+```{r}
+#| eval: false
+df_sf <- data1 %>% mutate(id = 1:nrow(data1)) %>% st_as_sf(coords =c("X","Y"))
+
+# create buffer of size 300 (based on estimated range) centred at each site
+
+buffer_25 <- st_buffer(df_sf, dist = 1.5) 
+
+# empty lists to include the indexes of the leave-out-group for each observation i
+I_i <- list()
+
+# loop though each observation and store the leave-out-group based on the buffer
+for( i in 1:nrow(df_sf)){
+
+# Temporal filtering of data within a 2 years of span of  observation i
+ df_sf_subset <- df_sf %>% 
+   filter( between(time,left = df_sf$time[i]-2, right = df_sf$time[i]+2)) 
+# Spatial filtering of the observations that are within the buffer of the ith observation
+Buffer_i <-df_sf_subset %>% st_intersects(buffer_25[i,],sparse = FALSE) %>% # identify 
+   unlist()
+
+# obtain the indexes of the leave out group
+I_i[[i]] <-  df_sf_subset[Buffer_i,] %>%  pull(id)
+
+}
+
+## Example for the the 200th test point  
+# ggplot()+geom_sf(data=df_sf)+
+#   facet_wrap(~year)+
+#   geom_sf(data=df_sf[I_i[[200]],],color="orange")+
+#   geom_sf(data = df_sf[200,],colour="purple") +
+#   geom_sf(data=buffer_25[200,],color="red",alpha=0) 
+  
+
+
+
+```
+
 ## Model 2
 
 ```{r}
@@ -224,15 +257,9 @@ spde <- inla.spde2.pcmatern(
 
 ```
 
-
-This is a space-time model with linear predictor as
-$$
+This is a space-time model with linear predictor as $$
 \eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + \omega(s) 
-$$
-with
-$f_1()$ and $f_2()$ as before while $\omega(s)$ is a gaussian spatial 
-field
-
+$$ with $f_1()$ and $f_2()$ as before while $\omega(s)$ is a gaussian spatial field
 
 ```{r}
 data1 = data %>% dplyr::filter(time %in% yy ) %>%
@@ -243,6 +270,7 @@ iset_sp <- inla.spde.make.index(name = "spatialfield",
 
 A_sp <- inla.spde.make.A(mesh = mesh, 
                          loc = cbind(data1$X, data1$Y))
+
 
 stk <- inla.stack(data=list(Ycounts = data1$counts, 
                             Ncounts = data1$nvisits,
@@ -268,11 +296,22 @@ formula3_2 <- inla.mdata(cbind(Ycounts,Ncounts),
                          Int_det, scale_mday, scale_mday2
                          ) ~ 
   -1 + Int_occ +  
-  #time + scale_elev + scale_elev2 + 
+  #time +
+  #scale_elev + scale_elev2 + 
   f(time, model = "iid") + 
     f(group_elev, model = "rw2", values = val_elev) + 
 
   f(spatialfield, model=spde) 
+
+formula3_2 <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det,scale_mday, scale_mday2) ~ 
+  f(group_elev, model = "rw2", values = val_elev) + 
+  -1 + Int_occ +  #time +  scale_elev + scale_elev2
+  f(time, model = "iid") + 
+  f(spatialfield, model=spde) 
+
+
+
 
 eps=1e-8 
 time2 = system.time(model3_2 <- inla(formula3_2, 
@@ -303,16 +342,11 @@ plot_inla_effects(model3_2$summary.random$group_elev)
 
 ```
 
-
 ## Model 3
-The last model is defined as:
-$$
-\eta_{st} = \beta_0 + f_1(\text{elev}) +  \omega(s,t) 
-$$
-with
-$f_1()$ is as before while $\omega(s,t)$ is a space-time gaussian spatial 
-field with AR1 time component
 
+The last model is defined as: $$
+\eta_{st} = \beta_0 + f_1(\text{elev}) +  \omega(s,t) 
+$$ with $f_1()$ is as before while $\omega(s,t)$ is a space-time gaussian spatial field with AR1 time component
 
 ```{r}
 
@@ -390,8 +424,8 @@ model3_3$summary.hyperpar
 plot_inla_effects(model3_3$summary.random$group_elev)
 ```
 
-
 # Results and Predictions
+
 ```{r}
 #| label: sample
 #| # posterior samples -------------------------------------------------------
@@ -402,11 +436,10 @@ sample3 = inla.posterior.sample(1000, model3_3)
 
 ```
 
-
-## Results 
-
+## Results
 
 ### Running times
+
 ```{r}
 table = data.frame(elapsed_Time = c(time0["elapsed"], time2["elapsed"], time3["elapsed"]),
                    DIC = c(model1$dic$dic, model3_2$dic$dic, model3_3$dic$dic),
@@ -415,10 +448,22 @@ table = data.frame(elapsed_Time = c(time0["elapsed"], time2["elapsed"], time3["e
 rownames(table) = paste("Model", c(1:3))
 kable(table)
 
+
+
+model3_3$summary.hyperpar %>% round(digits=2)
+
+loocv_m1 <- inla.group.cv(result = model1)
+ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
+
+loocv_m2 <- inla.group.cv(result = model3_2)
+ULOOCV2 = mean(log(loocv_m2$cv),na.rm=T)
+
+loocv_m3 <- inla.group.cv(result = model3_3,)
+ULOOCV3 = mean(log(loocv_m3$cv),na.rm=T)
 ```
 
+### elevation effect
 
-### elevation effect 
 First we look at the effect of elevation in the three fitted models
 
 ```{r}
@@ -429,11 +474,15 @@ data.frame(rbind(model1$summary.random$group_elev,
                                       each = length(model1$summary.random$group_elev$mean)))) %>%
   ggplot() + geom_line(aes(ID, -mean, color = model, group  = model)) +
   geom_ribbon(aes(ID,ymin= -X0.025quant, ymax = -X0.975quant, 
-                  group = model, fill = model), alpha = 0.3)
+                  group = model, fill = model), alpha = 0.3)+
+  labs(y="Logit-scaled occupancy probabilities",x="Standardized elevation values")+
+    theme(text=element_text(family="serif", size=20),
+                                               legend.text = element_text(size=16))+
+      scale_fill_discrete(name="")+
+  scale_colour_discrete(name="")
 
+ggsave(filename = "smooth_effect.pdf",dpi = 300,width = 4000,units = "px")
 ```
-
-
 
 ## Predictions over space
 
@@ -482,21 +531,38 @@ pred2 = pred1 %>%
          mean3 = apply(fix3_3,1,mean)) 
 
 
+# New facet label names for time variable
+time.labs <-  c("2010", "2018") 
+names(time.labs) <- c("1", "9")
+
+# New facet label names for name variable
+model.labs <- c("Model 1", "Model 2","Model 3")
+names(model.labs) <- c("mean1", "mean2","mean3")
+
 pred2 %>% dplyr::select(x,y,time, mean1, mean2, mean3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps +
-  ggtitle("Mean - logit scale")
+  facet_grid(time~name,labeller = labeller(time = time.labs, name = model.labs)) + scale_fill_scico(name="Occupancy \nprobability \n(logit-scaled)") + theme_maps +
+   theme(text=element_text(family="serif", size=20),
+                                               legend.text = element_text(size=16))
 
+ggsave(filename = "space_time_Occ_lprobs.pdf",dpi = 300,width = 4000,units = "px")
+
+
+# New facet label names for name variable
+model.labs <- c("Model 1", "Model 2","Model 3")
+names(model.labs) <- c("sd1", "sd2","sd3")
 
 pred2 %>% dplyr::select(x,y,time, sd1, sd2, sd3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Sd - logit scale")
+  facet_grid(time~name,labeller = labeller(time = time.labs, name = model.labs)) + scale_fill_scico(name="Occupancy \nprobability  sd\n(logit-scaled)") + theme_maps +
+   theme(text=element_text(family="serif", size=20),
+                                               legend.text = element_text(size=16))
 
+ggsave(filename = "space_time_Occ_lprobsSD.pdf",dpi = 300,width = 4000,units = "px")
 
 #' Probability of occurrence
 
@@ -519,16 +585,26 @@ pred2 %>% dplyr::select(x,y,time, mean1, mean2, mean3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Mean Occurrence Probability")
+   facet_grid(time~name,labeller = labeller(time = time.labs, name = model.labs)) + scale_fill_scico(name="Occupancy \nprobability") + theme_maps +
+   theme(text=element_text(family="serif", size=20),
+                                               legend.text = element_text(size=16))
 
+
+ggsave(filename = "space_time_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
+
+model.labs <- c("Model 1", "Model 2","Model 3")
+names(model.labs) <- c("quant_range1", "quant_range2","quant_range3")
 
 pred2 %>% dplyr::select(x,y,time, quant_range1, quant_range2, quant_range3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Difference in quantile (.975-.025)")
+  facet_grid(time~name,labeller = labeller(time = time.labs, name = model.labs)) + scale_fill_scico(name="Difference in \nquantile") + theme_maps +
+   theme(text=element_text(family="serif", size=20),
+                                               legend.text = element_text(size=16))
+
+ggsave(filename = "space_time_Occ_qunatiles.pdf",dpi = 300,width = 4000,units = "px")
+
 ```
 
 ## Parameters for the detection part of the model
@@ -536,7 +612,7 @@ pred2 %>% dplyr::select(x,y,time, quant_range1, quant_range2, quant_range3) %>%
 ```{r}
 # detecion paramters ------------------------------------------------------
 
-npar = 3
+npar = 1
 tab1 = rbind(model1$summary.hyperpar[1:npar,c(1,3,5)],
              model3_2$summary.hyperpar[1:npar,c(1,3,5)],
              model3_3$summary.hyperpar[1:npar,c(1,3,5)])
@@ -549,8 +625,6 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
 
 
 ```
-
-
 
 ## predict detection
 
@@ -571,30 +645,6 @@ det1 = inla.posterior.sample.eval(func_det, sample1)
 det2 = inla.posterior.sample.eval(func_det, sample2)
 det3 = inla.posterior.sample.eval(func_det, sample3)
 
-d0 = data.frame(time = time,
-                m1 = apply(det1  , 1,mean),
-                q11 = apply(det1  , 1,quantile, 0.05),
-                q12 = apply( det1  , 1,quantile, 0.95),
-                
-                 m2 = apply( det2  , 1,mean),
-                q21 = apply( det2  , 1,quantile, 0.05),
-                q22 = apply( det2  , 1,quantile, 0.95),
-               
-                m3 = apply( det3  , 1,mean),
-                q31 = apply( det3  , 1,quantile, 0.05),
-                q32 = apply( det3  , 1,quantile, 0.95))
-       d0 %>% ggplot() + 
-         geom_line(aes(time, m1, color = "model1"))  + 
-         geom_line(aes(time, m2, color = "model2"))  + 
-         geom_line(aes(time, m3, color = "model3"))   
-  
-       
-       
-       d0 %>%  ggplot() + geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0, color = "red") +
-   geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0, color = "blue") +
-   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0, color = "black")       
-
-
 d1 = data.frame(time = time,
                 m1 = apply(inla.link.logit(det1,inverse = T) , 1,mean),
                 q11 = apply(inla.link.logit(det1,inverse = T) , 1,quantile, 0.05),
@@ -611,12 +661,15 @@ d1 = data.frame(time = time,
 d1 %>% ggplot() + 
   geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0.3, fill = "red") +
    geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0.3, fill = "blue") +
-   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") #+
-#  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
-#  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") +
+  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
+  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
 
+ggplot() + geom_point(data = data, aes(x = mtod,  y = counts/nvisits))  +
+  geom_smooth(data = data, aes(x = mtod, y = counts/nvisits))
+
+     
 ```
-
 
 ## Using spOccupancy
 
@@ -624,7 +677,7 @@ d1 %>% ggplot() +
 library(spOccupancy)
 
 revi.sp.occ.formula <- ~ scale(elev) + I(scale(elev)^2) + scale(years)
-revi.sp.det.formula <- ~ scale(day) + I(scale(day^2)) 
+revi.sp.det.formula <- ~ scale(day) + I(scale(day)^2) + scale(tod)
 
 
 z.inits <- apply(revi.data$y, c(1, 2), function(a) as.numeric(sum(a, na.rm = TRUE) > 0))
@@ -725,4 +778,3 @@ data %>%
   summarise(m = mean(counts/nvisits)) %>%
   ggplot() + geom_point(aes(x = time, y = m)) 
 ```
-
