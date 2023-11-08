@@ -2,6 +2,7 @@
 title: "Fitting Occupancy models with R-INLA"
 format: 
   html: 
+    include-in-header: mathjax.html
     code-link: true
     code-fold: true
     code-tools: 
@@ -15,11 +16,22 @@ This section describes the steps to fit occupancy models in [R-INLA](https://www
 
 # Simple Spatial Occupancy Model
 
-*Model description goes in here ...*
+Here the following simple spatial occupancy model is fitted to the simulated data:
+
+```{=tex}
+\begin{align}
+z_{i} &\sim \mathrm{Bernoulli}(\psi_{i}) \nonumber \\
+& \mathrm{logit}(\psi_{i}) = \beta_1 + \beta_1 x_i + \omega_i \nonumber \\
+y_{i}|z_{i} &\sim \mathrm{Binomial}(K_i,z_{i} \times p_i)\nonumber\\
+\mathrm{logit}(p_{i}) &= \alpha_0 + \alpha_1 g_{i}.
+\label{eq:SSOM}
+\end{align}
+```
+Here, $z$ denotes the occupancy state with occupancy probabilities $\psi$ defined on the logit scale as a linear function of the simulated covariate $x$ with unknown parameters $\beta_0$ (Intercept), $\beta_1$ (slope) and $\omega$ (a Gaussian random field describing the spatial structure in the data). The response $y$ is the number of times a species was detected given $z$ and the detection probabilities $p$ are defined on the logit scale as a linear function of simulated covariate $g$ with unknown parameters $\alpha_0$ (Intercept), $\alpha_1$ (slope).
 
 ## Set up
 
-We first load the data and prepare it in the format that is required by the INLA library.
+We first load the data and prepare it in the format that is required by R-INLA.
 
 ```{r}
 #| warning: false
