@@ -9,9 +9,10 @@ execute:
   error: true
 editor_options: 
   chunk_output_type: console
+editor: 
+  markdown: 
+    wrap: 72
 ---
-
-
 
 ```{r}
 #| echo: false
@@ -37,7 +38,6 @@ theme_maps = theme(axis.title.x=element_blank(),
                   axis.text.y=element_blank(),
                   axis.ticks.y=element_blank(),)
 ```
-
 
 ```{r}
 #| echo: false
@@ -75,8 +75,6 @@ obs_index = data.frame(n_species = as.vector(N_species_obs2)/5,
   mutate(score = n_species/tot_species) %>%
   group_by(obs) %>% summarise(score = mean(score)) 
 ```
-
-
 
 ```{r}
 #| echo: false
@@ -227,15 +225,11 @@ ggplot() + inlabru::gg(mesh) + theme_maps + coord_equal()
 
 # Model 1: fixed time trend
 
-Model for occurrences:
-$$
+Model for occurrences: $$
 \text{logit}(\pi_{st}) = \beta_0 + \beta_t\ t + \omega(s) + \epsilon_t 
-$$
-Model for detection
-$$
+$$ Model for detection $$
 \text{logit}(p_s) = \alpha_0 + \alpha X(s)
 $$
-
 
 ```{r}
 #| cache: true
@@ -292,12 +286,9 @@ model <- inla(formula, #the formula
 
 # Model 2: Continuously varying time trend
 
-Model for occurrences:
-$$
+Model for occurrences: $$
 \text{logit}(\pi_{st}) = \beta_0 + \beta_t(s)\ t + \omega(s) + \epsilon_t 
-$$
-Model for detection
-$$
+$$ Model for detection $$
 \text{logit}(p_s) = \alpha_0 + \alpha X(s)
 $$
 
@@ -332,9 +323,10 @@ stk2 <- inla.stack(data=list(Ycounts = df_INLA$counts,
 
 formula2 = inla.mdata(cbind(Ycounts,Ncounts),Int_det, day, day2) ~ 
   -1 + Int_occ + 
- # f(time, model =  "iid") + 
   f(i1, model=spde)  +
   f(i2, model=spde) 
+ # f(time, model =  "iid") + 
+
 
 model2 <- inla(formula2, #the formula
               data=inla.stack.data(stk2),  
@@ -348,100 +340,144 @@ model2 <- inla(formula2, #the formula
               control.inla = list(int.strategy = "eb"),
               control.family = list(control.link = list(model = "logit"), 
                                     link.simple = "logit",
-                                    hyper = list(beta1 = list(param = c(0,1),
+                                    hyper = list(beta1 = list(param = c(0,1/3),
                                                               initial = 0),
-                                                 beta2 = list(param = c(0,1),
+                                                 beta2 = list(param = c(0,1/3),
                                                               initial = 0),
-                                                 beta3 = list(param  = c(0,1),
+                                                 beta3 = list(param  = c(0,1/3),
                                                               initial= 0),
-                                                 beta4 = list(param  = c(0,1),
+                                                 beta4 = list(param  = c(0,1/3),
                                                               initial= 1))))
 
 
 
 ```
 
-
 <!-- # Model 3: Regional varying time trend -->
 
 <!-- Model for occurrences: -->
+
 <!-- $$ -->
+
 <!-- \text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t  -->
+
 <!-- $$ -->
+
 <!-- Model for detection -->
+
 <!-- $$ -->
+
 <!-- \text{logit}(p_s) = \alpha_0 + \alpha X(s) -->
+
 <!-- $$ -->
 
 <!-- ```{r} -->
+
 <!-- #| cache: true -->
+
 <!-- #| label: model_bcr -->
+
 <!-- # bcr model --------------------------------------------------------------- -->
+
 <!-- iset_sp <- inla.spde.make.index(name = "spatialfield", -->
+
 <!--                                 n.spde =  spde$n.spde) -->
+
 <!-- A_sp <- inla.spde.make.A(mesh = mesh,  -->
+
 <!--                          loc = cbind(df_INLA$x, df_INLA$y)) -->
+
 <!-- stk3 <- inla.stack(data=list(Ycounts = df_INLA$counts,  -->
+
 <!--                             Ncounts = df_INLA$n_samples, -->
+
 <!--                             day = df_INLA$day, -->
+
 <!--                             day2 = df_INLA$day2, -->
+
 <!--                             score = df_INLA$score, -->
+
 <!--                             Int_det = 1), #the response -->
+
 <!--                   A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates) -->
+
 <!--                   effects=list(c(list(Int_occ=1), #the Intercept -->
+
 <!--                                  iset_sp),  #the spatial index -->
+
 <!--                                #the covariates -->
+
 <!--                                list(scale_year = df_INLA$scale_year, -->
+
 <!--                                     bcr_idx = df_INLA$bcr_idx, -->
 
 <!--                                     time = df_INLA$year-1999)),  -->
+
 <!--                   #this is a quick name so yo can call upon easily -->
+
 <!--                   tag='dat') -->
 
-
 <!-- formula3 = inla.mdata(cbind(Ycounts,Ncounts),Int_det,  -->
+
 <!--                       day, day2) ~  -->
+
 <!--   -1 + Int_occ +  -->
+
 <!--   #f(time, model =  "iid") +  -->
+
 <!--   f(bcr_idx,scale_year, model="iid", values = sort(unique(all_bcr_idx)))  + -->
+
 <!--   f(spatialfield,  -->
+
 <!--     model = spde) -->
 
 <!-- model3 <- inla(formula3, #the formula -->
+
 <!--                data=inla.stack.data(stk3),  #the data stack -->
+
 <!--                family= '0binomialS',   #which family the data comes from -->
+
 <!--                control.fixed =  list(prec = 1, prec.intercept = 1), -->
+
 <!--                control.predictor=list(A=inla.stack.A(stk3), -->
+
 <!--                                       compute=TRUE),  #compute gives you the marginals of the linear predictor -->
+
 <!--                control.compute = list(dic = TRUE, waic = TRUE,  -->
+
 <!--                                       config = TRUE), #model diagnostics and config = TRUE gives you the GMRF -->
+
 <!--                # verbose = TRUE, -->
+
 <!--                control.inla = list(int.strategy = "eb"),#, cmin =0),  -->
+
 <!--                control.family = list(control.link = list(model = "logit"),  -->
+
 <!--                                      link.simple = "logit", -->
+
 <!--                                      hyper = list(beta1 = list(param = c(0,1), -->
+
 <!--                                                                initial = 0.5), -->
+
 <!--                                                   beta2 = list(param = c(0,1), -->
+
 <!--                                                                initial = 0), -->
+
 <!--                                                   beta3 = list(param  = c(0,1), -->
+
 <!--                                                                initial= 0), -->
+
 <!--                                                   beta4 = list(param  = c(0,1), -->
+
 <!--                                                                initial= 0)))) -->
-
-
-
 
 <!-- ``` -->
 
-
 # Model 3: Regional varying time trend with CAR str
 
-Model for occurrences:
-$$
+Model for occurrences: $$
 \text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t 
-$$
-Model for detection
-$$
+$$ Model for detection $$
 \text{logit}(p_s) = \alpha_0 + \alpha X(s)
 $$
 
@@ -538,7 +574,6 @@ A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
 
 ```
 
-
 # Results
 
 ## Model comparisson
@@ -556,15 +591,17 @@ kable(tt,  digits = 2)
 
 ```
 
-
 ### LGOCV
 
 ```{r}
+#| eval: false
+
+
 df_sf <- df_INLA %>% mutate(id = 1:nrow(df_INLA)) %>% st_as_sf(coords =c("x","y"))
 
 # create buffer of size 300 (based on estimated range) centred at each site
 
-buffer_25 <- st_buffer(df_sf, dist = 500) 
+buffer_25 <- st_buffer(df_sf, dist = 150) 
 
 # empty lists to include the indexes of the leave-out-group for each observation i
 I_i <- list()
@@ -587,36 +624,34 @@ I_i[[i]] <-  df_sf_subset[Buffer_i,] %>%  pull(id)
 
 ggplot()+geom_sf(data=df_sf)+
   facet_wrap(~year)+
-  geom_sf(data=df_sf[I_i[[10000]],],color="orange")+
-  geom_sf(data = df_sf[10000,],colour="purple") +
-  geom_sf(data=buffer_25[10000,],color="red",alpha=0) 
+  geom_sf(data=df_sf[I_i[[1]],],color="orange")+
+  geom_sf(data = df_sf[1,],colour="purple") +
+  geom_sf(data=buffer_25[1,],color="red",alpha=0) 
   
-
-
-loocv_m2 <- inla.group.cv(result = model2,groups = I_i)
-
-ULOOCV = mean(log(loocv_m1$cv[1:n]))
-
-filter_and_plot <- function(i, df_sf, buffer_25, time= 1) {
-  df_sf_subset <- df_sf %>% 
-    filter(between(year, left = df_sf$year[i]-time, right = df_sf$year[i]+time)) 
-  
-  Buffer_i <- df_sf_subset %>% st_intersects(buffer_25[i,], sparse = FALSE) %>% unlist()
-  
-  I_i <- df_sf_subset[Buffer_i,] %>% pull(id)
-  
-  return(I_i)
-}
-
-I_i <- lapply(1:nrow(df_sf), function(i) filter_and_plot(i, df_sf, buffer_25,time=2))
-
+loocv_m1 <- inla.group.cv(result = model,groups = I_i)
+ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
 
 ```
 
+```{r}
+
+loocv_m1 <- inla.group.cv(result = model,num.level.sets = 3)
+ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
+
+loocv_m2 <- inla.group.cv(result = model2,group.cv = loocv_m1)
+ULOOCV2 = mean(log(loocv_m2$cv),na.rm=T)
+
+loocv_m4 <- inla.group.cv(result = model4,group.cv = loocv_m1)
+ULOOCV4 = mean(log(loocv_m4$cv),na.rm=T)
 
 
+ggplot()+geom_sf(data=df_sf)+
+  facet_wrap(~year)+
+  geom_sf(data=df_sf[loocv_m1$groups[[10000]]$idx,],color="orange")+
+  geom_sf(data = df_sf[10000,],colour="purple") +
+  geom_sf(data=buffer_25[10000,],color="red",alpha=0) 
 
-
+```
 
 ## Fixed effect
 
@@ -634,6 +669,7 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
 ```
 
 ## Time trend
+
 ```{r}
 # here we plot the temporal trend in the three models
 
@@ -852,7 +888,6 @@ ggsave(filename = "svc_trends.pdf",dpi = 300,width = 3000,units = "px")
 
 ```
 
-
 ## Time random effect
 
 ```{r}
@@ -892,8 +927,8 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
 
 ## Probability of occurrence predictions
 
-Predictions over the whole domain of the linear predictor for occurrence and probability of occurrence. These are for year 2019.
-
+Predictions over the whole domain of the linear predictor for occurrence
+and probability of occurrence. These are for year 2019.
 
 ```{r}
 # predict  occurrence probability -----------------------------------------
@@ -1075,8 +1110,6 @@ ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
-
-
 ```{r}
 
 
@@ -1141,5 +1174,3 @@ ggplot() + geom_spatraster(data=occ)+ facet_wrap(~lyr, ncol = 3)  + coord_equal(
 
 ggsave(filename = "SVC_mean_diff2.pdf",dpi = 300,width = 3000,units = "px")
 ```
-
-
