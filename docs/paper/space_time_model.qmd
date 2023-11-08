@@ -268,9 +268,9 @@ formula3_2 <- inla.mdata(cbind(Ycounts,Ncounts),
                          Int_det, scale_mday, scale_mday2
                          ) ~ 
   -1 + Int_occ +  
-  time + scale_elev + scale_elev2 + 
-  #f(time, model = "iid") + 
-  #  f(group_elev, model = "rw2", values = val_elev) + 
+  #time + scale_elev + scale_elev2 + 
+  f(time, model = "iid") + 
+    f(group_elev, model = "rw2", values = val_elev) + 
 
   f(spatialfield, model=spde) 
 
@@ -536,7 +536,7 @@ pred2 %>% dplyr::select(x,y,time, quant_range1, quant_range2, quant_range3) %>%
 ```{r}
 # detecion paramters ------------------------------------------------------
 
-npar = 1
+npar = 3
 tab1 = rbind(model1$summary.hyperpar[1:npar,c(1,3,5)],
              model3_2$summary.hyperpar[1:npar,c(1,3,5)],
              model3_3$summary.hyperpar[1:npar,c(1,3,5)])
@@ -571,6 +571,30 @@ det1 = inla.posterior.sample.eval(func_det, sample1)
 det2 = inla.posterior.sample.eval(func_det, sample2)
 det3 = inla.posterior.sample.eval(func_det, sample3)
 
+d0 = data.frame(time = time,
+                m1 = apply(det1  , 1,mean),
+                q11 = apply(det1  , 1,quantile, 0.05),
+                q12 = apply( det1  , 1,quantile, 0.95),
+                
+                 m2 = apply( det2  , 1,mean),
+                q21 = apply( det2  , 1,quantile, 0.05),
+                q22 = apply( det2  , 1,quantile, 0.95),
+               
+                m3 = apply( det3  , 1,mean),
+                q31 = apply( det3  , 1,quantile, 0.05),
+                q32 = apply( det3  , 1,quantile, 0.95))
+       d0 %>% ggplot() + 
+         geom_line(aes(time, m1, color = "model1"))  + 
+         geom_line(aes(time, m2, color = "model2"))  + 
+         geom_line(aes(time, m3, color = "model3"))   
+  
+       
+       
+       d0 %>%  ggplot() + geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0, color = "red") +
+   geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0, color = "blue") +
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0, color = "black")       
+
+
 d1 = data.frame(time = time,
                 m1 = apply(inla.link.logit(det1,inverse = T) , 1,mean),
                 q11 = apply(inla.link.logit(det1,inverse = T) , 1,quantile, 0.05),
@@ -587,14 +611,10 @@ d1 = data.frame(time = time,
 d1 %>% ggplot() + 
   geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0.3, fill = "red") +
    geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0.3, fill = "blue") +
-   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") +
-  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
-  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") #+
+#  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
+#  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
 
-ggplot() + geom_point(data = data, aes(x = mtod,  y = counts/nvisits))  +
-  geom_smooth(data = data, aes(x = mtod, y = counts/nvisits))
-
-     
 ```
 
 
@@ -604,7 +624,7 @@ ggplot() + geom_point(data = data, aes(x = mtod,  y = counts/nvisits))  +
 library(spOccupancy)
 
 revi.sp.occ.formula <- ~ scale(elev) + I(scale(elev)^2) + scale(years)
-revi.sp.det.formula <- ~ scale(day) + I(scale(day)^2) + scale(tod)
+revi.sp.det.formula <- ~ scale(day) + I(scale(day^2)) 
 
 
 z.inits <- apply(revi.data$y, c(1, 2), function(a) as.numeric(sum(a, na.rm = TRUE) > 0))
