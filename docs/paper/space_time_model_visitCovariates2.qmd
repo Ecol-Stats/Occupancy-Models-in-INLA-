@@ -1,7 +1,11 @@
 ---
 title: "Space time Occupacy model with INLA"
-format: html
+format: 
+  html:
+    embed-resources: true
 editor: source
+  markdown: 
+    wrap: 72
 editor_options: 
   chunk_output_type: console
 bibliography: references.bib
@@ -12,9 +16,9 @@ execute:
   collapse: true
 ---
 
-# Introduction 
+# Introduction
 
-In this document we show how to fit a space time occupacy  model for the dataset "hbefTrends" in the 'spOccupacy'  library.
+In this document we show how to fit a space time occupancy model for the dataset "hbefTrends" in the 'spOccupacy' library.
 
 ```{r setup}
 #| message: false
@@ -58,8 +62,9 @@ theme_maps = theme(axis.line=element_blank(),
 ```
 
 # Load and prepare the data
+
 We first load the data and select the species of interest. Here we choose BTBW which is not one of the rare species present in the dataset.
- 
+
 Afterwards we prepare the data in the format that is required by the INLA library
 
 ```{r}
@@ -113,7 +118,6 @@ data %>%
 
 ```
 
-
 ```{r}
 elev_raster= raster::rasterFromXYZ(data.frame(x = hbefElev$Easting/1000,
                                               y = hbefElev$Northing/1000,
@@ -146,24 +150,15 @@ val_elev = sort(unique(xx))
 
 ```
 
-
 # Model fit
 
+## Model 1
 
-## Model 1 
-
-
- This is  a separable space time model with linear predictors
-$$
+This is a separable space time model with linear predictors $$
 \eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + f_3(s)
-$$
-where
-$f_1(\text{elev})$ is a smooth (RW2) effect of the elevation
-$f_2(t)$ is a AR1 effect of time
-$f_3(s)$ is an IID effect of location
+$$ where $f_1(\text{elev})$ is a smooth (RW2) effect of the elevation $f_2(t)$ is a AR1 effect of time $f_3(s)$ is an IID effect of location
 
-The model for detection is a function of day of survey and time of the day.
-$$
+The model for detection is a function of day of survey and time of the day. $$
 \text{logit}(p_{st}) = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
 $$
 
@@ -221,17 +216,11 @@ spde <- inla.spde2.pcmatern(
 
 ```
 
-
-This is a space-time model with linear predictor as
-$$
+This is a space-time model with linear predictor as $$
 \eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + \omega(s) 
-$$
-with
-$f_1()$ and $f_2()$ as before while $\omega(s)$ is a gaussian spatial 
-field
+$$ with $f_1()$ and $f_2()$ as before while $\omega(s)$ is a gaussian spatial field
 
-The model for detection is a function of day of survey and time of the day.
-$$
+The model for detection is a function of day of survey and time of the day. $$
 \text{logit}(p_{st}) = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
 $$
 
@@ -259,7 +248,7 @@ stk <- inla.stack(data=list(Ycounts = data$y,
                                     time = data$time,
                                     group_elev = data$group_elev,
                                     scale_time = data$scale_time,
-                                    site = data$site,
+                                    site =  data$site,
                                     random = data$random)), 
                   #this is a quick name so yo can call upon easily
                   tag='dat')
@@ -289,18 +278,13 @@ time2 = system.time(model3_2 <- inla(formula3_2,
                                                            ))))
 ```
 
-
 ## Model 3
-The last model is defined as:
-$$
-\eta_{st} = \beta_0 + f_1(\text{elev}) +  \omega(s,t) 
-$$
-with
-$f_1()$ is as before while $\omega(s,t)$ is a space-time gaussian spatial 
-field with AR1 time component
 
-The model for detection is a function of day of survey and time of the day.
-$$
+The last model is defined as: $$
+\eta_{st} = \beta_0 + f_1(\text{elev}) +  \omega(s,t) 
+$$ with $f_1()$ is as before while $\omega(s,t)$ is a space-time gaussian spatial field with AR1 time component
+
+The model for detection is a function of day of survey and time of the day. $$
 \text{logit}(p_{st}) = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
 $$
 
@@ -369,8 +353,8 @@ time3 = system.time(model3_3 <- inla(formula3_3, #the formula
 
 ```
 
-
 # Results and Predictions
+
 ```{r}
 # posterior samples -------------------------------------------------------
 
@@ -380,11 +364,10 @@ sample3 = inla.posterior.sample(1000, model3_3)
 
 ```
 
-
-## Results 
-
+## Results
 
 ### Running times
+
 ```{r}
 table = data.frame(elapsed_Time = c(time0["elapsed"], time2["elapsed"], time3["elapsed"]),
                    DIC = c(model1$dic$dic, model3_2$dic$dic, model3_3$dic$dic),
@@ -395,11 +378,12 @@ kable(table)
 
 ```
 
+### elevation effect
 
-### elevation effect 
 First we look at the effect of elevation in the three fitted models
 
-#+ plots
+\## plots
+
 ```{r}
 data.frame(rbind(model1$summary.random$group_elev,
                  model3_2$summary.random$group_elev,
@@ -408,12 +392,13 @@ data.frame(rbind(model1$summary.random$group_elev,
                                       each = length(model1$summary.random$group_elev$mean)))) %>%
   ggplot() + geom_line(aes(ID, -mean, color = model, group  = model)) +
   geom_ribbon(aes(ID,ymin= -X0.025quant, ymax = -X0.975quant, 
-                  group = model, fill = model), alpha = 0.3)
-
+                  group = model, fill = model), alpha = 0.3)+
+   scale_color_discrete(name="")+scale_fill_discrete(name="")+
+  labs(y="Logit-scaled occupancy probabilities",x="Standardized elevation values")+
+  theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
+ggsave(filename = "smooth_effect.pdf",dpi = 300,width = 3000,units = "px")
 ```
-
-
-
 
 ## Predictions over space
 
@@ -470,6 +455,7 @@ pred2 %>% dplyr::select(x,y,time, mean1, mean2, mean3) %>%
   ggtitle("Mean - logit scale")
 
 
+
 pred2 %>% dplyr::select(x,y,time, sd1, sd2, sd3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
@@ -495,27 +481,40 @@ pred2 = pred1 %>%
          mean3 = apply(probs3,1,mean),
          quant_range3 = quant3[2,]-quant3[1,]) 
 
+# New facet label names for years variable
+year.labs <- c("2010", "2018")
+names(year.labs) <- c("1", "9")
+
+# New facet label names for model variable
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("mean1", "mean2", "mean3")
+
 pred2 %>% dplyr::select(x,y,time, mean1, mean2, mean3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Mean Occurrence Probability")
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="Occupancy \n probability") + theme_maps+
+   theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
 
+ggsave(filename = "space_time_Occ_probs.pdf",dpi = 300,width = 3000,units = "px")
+
+
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("quant_range1", "quant_range2", "quant_range3")
 
 pred2 %>% dplyr::select(x,y,time, quant_range1, quant_range2, quant_range3) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Difference in quantile (.975-.025)")
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="Difference in \n  quantile") + theme_maps +
+   theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
+
+ggsave(filename = "space_time_Occ_qunatiles.pdf",dpi = 300,width = 3000,units = "px")
 ```
 
 ## Parameters for the detection part of the model
-
-
-
-
 
 ```{r}
 npar = 1
@@ -528,7 +527,6 @@ kable(tt, booktabs = TRUE, digits = 2) %>% pack_rows(
 
 ```
 
-
 ## Parameters of the SPDE model
 
 ```{r}
@@ -540,109 +538,180 @@ kable(tt, booktabs = TRUE, digits = 2) %>% pack_rows(
 
 ```
 
-
-
-
-
 <!-- ## Using spOccupancy -->
 
 <!-- ```{r} -->
+
 <!-- library(spOccupancy) -->
 
 <!-- revi.sp.occ.formula <- ~ scale(elev) + I(scale(elev)^2) #+ scale(years)  -->
+
 <!-- revi.sp.det.formula <- ~ 1#scale(day) + I(scale(day)^2) + scale(tod) -->
 
-
 <!-- z.inits <- apply(revi.data$y, c(1, 2), function(a) as.numeric(sum(a, na.rm = TRUE) > 0)) -->
+
 <!-- # Pair-wise distance between all sites -->
+
 <!-- dist.hbef <- dist(revi.data$coords) -->
+
 <!-- revi.sp.inits <- list(beta = 0, alpha = 0, z = z.inits, -->
+
 <!--                       sigma.sq = 1, phi = 3 / mean(dist.hbef),  -->
+
 <!--                       sigma.sq.t = 1.5, rho = 0.2) -->
+
 <!-- revi.sp.priors <- list(beta.normal = list(mean = 0, var = 2.72),  -->
+
 <!--                        alpha.normal = list(mean = 0, var = 2.72),  -->
+
 <!--                        sigma.sq.t.ig = c(2, 0.5),  -->
+
 <!--                        rho.unif = c(-1, 1), -->
+
 <!--                        sigma.sq.ig = c(2, 1),  -->
+
 <!--                        phi.unif = c(3 / max(dist.hbef), 3 / min(dist.hbef)), -->
+
 <!--                        nu.unif =c(0,1)) -->
 
 <!-- cov.model <- 'matern' -->
+
 <!-- n.neighbors <- 5 -->
+
 <!-- ar1 <- FALSE -->
 
 <!-- n.batch <- 600 -->
+
 <!-- batch.length <- 25 -->
+
 <!-- n.burn <- 10000 -->
+
 <!-- n.thin <- 20  -->
 
-
 <!-- # Approx. run time: ~ 2.5 min -->
-<!-- out.sp <- stPGOcc(occ.formula = revi.sp.occ.formula,  -->
-<!--                    det.formula = revi.sp.det.formula,  -->
-<!--                    data = revi.data,  -->
-<!--                    inits = revi.sp.inits,  -->
-<!--                    priors = revi.sp.priors,  -->
-<!--                    cov.model = cov.model,  -->
-<!--                    n.neighbors = n.neighbors, -->
-<!--                    n.batch = n.batch,  -->
-<!--                    batch.length = batch.length,  -->
-<!--                    verbose = TRUE,  -->
-<!--                    ar1 = ar1, -->
-<!--                    n.report = 200, -->
-<!--                    n.burn = n.burn,  -->
-<!--                    n.thin = n.thin,  -->
-<!--                    n.chains = 3)  -->
 
+<!-- out.sp <- stPGOcc(occ.formula = revi.sp.occ.formula,  -->
+
+<!--                    det.formula = revi.sp.det.formula,  -->
+
+<!--                    data = revi.data,  -->
+
+<!--                    inits = revi.sp.inits,  -->
+
+<!--                    priors = revi.sp.priors,  -->
+
+<!--                    cov.model = cov.model,  -->
+
+<!--                    n.neighbors = n.neighbors, -->
+
+<!--                    n.batch = n.batch,  -->
+
+<!--                    batch.length = batch.length,  -->
+
+<!--                    verbose = TRUE,  -->
+
+<!--                    ar1 = ar1, -->
+
+<!--                    n.report = 200, -->
+
+<!--                    n.burn = n.burn,  -->
+
+<!--                    n.thin = n.thin,  -->
+
+<!--                    n.chains = 3)  -->
 
 <!-- out.sp|>summary() -->
 
 <!-- # Number of prediction sites. -->
+
 <!-- J.pred <- nrow(hbefElev) -->
+
 <!-- # Number of prediction years. -->
+
 <!-- n.years.pred <- 2 -->
+
 <!-- # Number of predictors (including intercept) -->
+
 <!-- p.occ <- ncol(out.sp$beta.samples) -->
+
 <!-- # Get covariates and standardize them using values used to fit the model -->
+
 <!-- elev.pred <- (hbefElev$val - mean(revi.data$occ.covs$elev)) / sd(revi.data$occ.covs$elev) -->
+
 <!-- year.pred <- matrix(rep((c(2010, 2018) - mean(revi.data$occ.covs$years)) /  -->
+
 <!--             sd(revi.data$occ.covs$years),  -->
+
 <!--                     length(elev.pred)), J.pred, n.years.pred, byrow = TRUE) -->
+
 <!-- # Create three-dimensional array -->
+
 <!-- X.0 <- array(1, dim = c(J.pred, n.years.pred, p.occ)) -->
+
 <!-- # Fill in the array -->
+
 <!-- # Years -->
+
 <!-- X.0[, , 2] <- year.pred -->
+
 <!-- # Elevation -->
+
 <!-- X.0[, , 3] <- elev.pred -->
+
 <!-- # Elevation^2 -->
+
 <!-- X.0[, , 4] <- elev.pred^2 -->
+
 <!-- # Check out the structure -->
+
 <!-- str(X.0) -->
+
 <!-- # Indicate which primary time periods (years) we are predicting for -->
+
 <!-- t.cols <- c(1, 9) -->
+
 <!-- # Approx. run time: < 30 sec -->
+
 <!-- coords.0 <- cbind(hbefElev$Easting,hbefElev$Northing) -->
+
 <!-- out.pred <- predict(out.sp, X.0,coords.0, t.cols = t.cols, ignore.RE = TRUE, type = 'occupancy') -->
+
 <!-- # Check out the structure -->
+
 <!-- str(out.pred) -->
+
 <!-- plot.dat <- data.frame(x = hbefElev$Easting,  -->
+
 <!--                        y = hbefElev$Northing,  -->
+
 <!--                        mean.2009.psi = apply(out.pred$psi.0.samples[, , 1], 2, mean),  -->
+
 <!--                        mean.2018.psi = apply(out.pred$psi.0.samples[, , 2], 2, mean),  -->
+
 <!--                        sd.2009.psi = apply(out.pred$psi.0.samples[, , 1], 2, sd),  -->
+
 <!--                        sd.2018.psi = apply(out.pred$psi.0.samples[, , 2], 2, sd),  -->
+
 <!--                        stringsAsFactors = FALSE) -->
+
 <!-- # Make a species distribution map showing the point estimates, -->
+
 <!-- # or predictions (posterior means) -->
+
 <!-- dat.stars <- st_as_stars(plot.dat, dims = c('x', 'y')) -->
+
 <!-- # 2009 -->
+
 <!-- ggplot() +  -->
+
 <!--   geom_stars(data = dat.stars, aes(x = x, y = y, fill = mean.2009.psi)) + -->
+
 <!--   scale_fill_viridis_c(na.value = 'transparent') + -->
+
 <!--   labs(x = 'Easting', y = 'Northing', fill = '',  -->
+
 <!--        title = '') + -->
+
 <!--   theme_bw() -->
 
 <!-- ``` -->
-

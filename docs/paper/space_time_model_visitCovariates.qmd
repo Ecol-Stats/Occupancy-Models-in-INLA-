@@ -591,21 +591,35 @@ pred2 = pred1 %>%
          mean3B = apply(fix3B,1,mean)
          ) 
 
+# New facet label names for years variable
+year.labs <- c("2010", "2018")
+names(year.labs) <- c("1", "9")
+
+# New facet label names for model variable
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("mean1", "mean2", "mean3")
 
 pred2 %>% dplyr::select(x,y,time, mean1A, mean2A, mean3A,mean1B, mean2B, mean3B ) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps +
-  ggtitle("Mean - logit scale")
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="logit-scaled mean \noccupancy probability") + theme_maps +
+    theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
 
+ggsave(filename = "space_time_Occ_lprobs.pdf",dpi = 300,width = 3000,units = "px")
+
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("sd1", "sd2", "sd3")
 
 pred2 %>% dplyr::select(x,y,time, sd1A, sd2A, sd3A,sd1B, sd2B, sd3B ) %>%
   pivot_longer(-c(x,y,time)) %>%
   ggplot() + geom_tile(aes(x,y,fill = value)) +
   coord_equal() + 
-  facet_grid(time~name) + scale_fill_scico() + theme_maps+
-  ggtitle("Sd - logit scale")
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="logit-scaled occupancy \nprobability (sd)") + theme_maps+theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
+
+ggsave(filename = "space_time_Occ_lsd.pdf",dpi = 300,width = 3000,units = "px")
 
 
 #' Probability of occurrence

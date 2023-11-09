@@ -2,7 +2,7 @@
 title:  "Occupacy model with space-varying time trends"
 format:
   html:
-    self-contained: true
+    embed-resources: true
 execute: 
   echo: false
   warning: false
@@ -23,6 +23,7 @@ library(spOccupancy)
 
 library(tidyverse)
 library(INLA)
+library(inlabru)
 library(scico)
 library(sf)
 library(stars)
@@ -44,8 +45,8 @@ theme_maps = theme(axis.title.x=element_blank(),
 #| label: load_data
 
 # load data ---------------------------------------------
-load(here::here("data_SCV_model/spOcc-bbs-data.rda"))
-
+#load(here::here("data_SCV_model/spOcc-bbs-data.rda"))
+load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/spOcc-bbs-data.rda")
 data.list_orig  = data.list
 # Loads the data.list object, which is formatted for spOccupancy.
 # Species info
@@ -88,7 +89,9 @@ sp.indx <- which(sp.names == curr.sp)
 data.list$y <- data.list$y[sp.indx, , , ]
 # Only use locations within the breeding range of the species.
 # Load in species range information based on bird life data. 
-load(here::here("data_SCV_model/bird-life-processed.rda"))
+#load(here::here("data_SCV_model/bird-life-processed.rda"))
+load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/bird-life-processed.rda")
+
 data.list$y <- data.list$y[range.ind[sp.indx, ] == 1, , ]
 data.list$occ.covs$years <- data.list$occ.covs$years[range.ind[sp.indx, ] == 1, ]
 data.list$occ.covs$BCR <- data.list$occ.covs$BCR[range.ind[sp.indx, ] == 1]
@@ -103,7 +106,7 @@ data.list$coords <- data.list$coords[range.ind[sp.indx, ] == 1, ]
 ```{r}
 #| echo: false
 #| label: shape_files
-
+#| message: false
 # Stuff for plotting ------------------------------------------------------
 coords.sf <- st_as_sf(as.data.frame(data.list$coords),
                       coords = c("X", "Y"),
@@ -126,7 +129,11 @@ east.us.no.states <- east.us.no.states %>%
   st_transform(st_crs(coords.sf))
 
 # BCRS, in case you want to visualize the maps with these
-bcrs <- st_read(dsn = here::here("data_SCV_model/BCR_Terrestrial/"), layer = "BCR_Terrestrial_master")
+#bcrs <- st_read(dsn = here::here("data_SCV_model/BCR_Terrestrial/"), layer = "BCR_Terrestrial_master")
+bcrs <- st_read(dsn = here::here("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/BCR_Terrestrial/"), layer = "BCR_Terrestrial_master")
+
+
+
 my.proj <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=km +no_defs"
 coords.sf <- st_as_sf(as.data.frame(data.list$coords),
                       coords = c("X", "Y"),
@@ -221,6 +228,8 @@ spde <- inla.spde2.pcmatern(
   prior.sigma = c(1, 0.5)) 
 
 ggplot() + inlabru::gg(mesh) + theme_maps + coord_equal()
+
+
 ```
 
 # Model 1: fixed time trend
@@ -232,8 +241,9 @@ $$ Model for detection $$
 $$
 
 ```{r}
-#| cache: true
 #| label: model_constant
+
+
 # model with fixed covariate ----------------------------------------------
 
 
@@ -261,7 +271,7 @@ formula = inla.mdata(cbind(Ycounts,Ncounts),Int_det, day, day2) ~
   -1 + Int_occ + scale_year + 
   f(spatialfield, model=spde) 
 
-model <- inla(formula, #the formula
+time1 = system.time(model <- inla(formula, #the formula
                              data=inla.stack.data(stk), 
                              family= '0binomialS',  
                              control.fixed =  list(prec = 1, prec.intercept = 1),
@@ -278,7 +288,7 @@ model <- inla(formula, #the formula
                                                                              initial = 0),
                                                                 beta3 = list(param = c(0,1),
                                                                              initial = 0),
-                                                                beta4 = list(param = c(0,1)))))
+                                                                beta4 = list(param = c(0,1))))))
                                                                             
 
 
@@ -293,8 +303,9 @@ $$ Model for detection $$
 $$
 
 ```{r}
-#| cache: true
 #| label: model_SPDE
+
+
 # space varying model -----------------------------------------------------
 iset_sp1 <- inla.spde.make.index(name = "i1",
                                  n.spde =  spde$n.spde)
@@ -328,7 +339,7 @@ formula2 = inla.mdata(cbind(Ycounts,Ncounts),Int_det, day, day2) ~
  # f(time, model =  "iid") + 
 
 
-model2 <- inla(formula2, #the formula
+time2 = system.time(model2 <- inla(formula2, #the formula
               data=inla.stack.data(stk2),  
               family= '0binomialS',  
               control.fixed =  list(prec = 1, prec.intercept = 1),
@@ -346,13 +357,19 @@ model2 <- inla(formula2, #the formula
                                                               initial = 0),
                                                  beta3 = list(param  = c(0,1/3),
                                                               initial= 0),
+<<<<<<< Updated upstream
                                                  beta4 = list(param  = c(0,1/3),
                                                               initial= 1))))
+=======
+                                                 beta4 = list(param  = c(0,1),
+                                                              initial= 1)))))
+>>>>>>> Stashed changes
 
 
 
 ```
 
+<<<<<<< Updated upstream
 <!-- # Model 3: Regional varying time trend -->
 
 <!-- Model for occurrences: -->
@@ -478,12 +495,118 @@ model2 <- inla(formula2, #the formula
 Model for occurrences: $$
 \text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t 
 $$ Model for detection $$
+=======
+# Model 3: Regional varying time trend
+
+Model for occurrences: $$
+\text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t 
+$$ Model for detection $$
 \text{logit}(p_s) = \alpha_0 + \alpha X(s)
 $$
 
 ```{r}
-#| cache: true
+#| label: model_bcr
+
+
+# bcr model ---------------------------------------------------------------
+iset_sp <- inla.spde.make.index(name = "spatialfield",
+                                n.spde =  spde$n.spde)
+A_sp <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(df_INLA$x, df_INLA$y))
+stk3 <- inla.stack(data=list(Ycounts = df_INLA$counts, 
+                            Ncounts = df_INLA$n_samples,
+                            day = df_INLA$day,
+                            day2 = df_INLA$day2,
+                            score = df_INLA$score,
+                            Int_det = 1), #the response
+                  A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates)
+                  effects=list(c(list(Int_occ=1), #the Intercept
+                                 iset_sp),  #the spatial index
+                               #the covariates
+                               list(scale_year = df_INLA$scale_year,
+                                    bcr_idx = df_INLA$bcr_idx,
+                                    
+                                    time = df_INLA$year-1999)), 
+                  #this is a quick name so yo can call upon easily
+                  tag='dat')
+
+
+formula3 = inla.mdata(cbind(Ycounts,Ncounts),Int_det, 
+                      day, day2) ~ 
+  -1 + Int_occ + 
+  #f(time, model =  "iid") + 
+  f(bcr_idx,scale_year, model="iid", values = sort(unique(all_bcr_idx)))  +
+  f(spatialfield, 
+    model = spde)
+
+time3 = system.time(model3 <- inla(formula3, #the formula
+               data=inla.stack.data(stk3),  #the data stack
+               family= '0binomialS',   #which family the data comes from
+               control.fixed =  list(prec = 1, prec.intercept = 1),
+               control.predictor=list(A=inla.stack.A(stk3),
+                                      compute=TRUE),  #compute gives you the marginals of the linear predictor
+               control.compute = list(dic = TRUE, waic = TRUE, 
+                                      config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
+               # verbose = TRUE,
+               control.inla = list(int.strategy = "eb"),#, cmin =0), 
+               control.family = list(control.link = list(model = "logit"), 
+                                     link.simple = "logit",
+                                     hyper = list(beta1 = list(param = c(0,1),
+                                                               initial = 0.5),
+                                                  beta2 = list(param = c(0,1),
+                                                               initial = 0),
+                                                  beta3 = list(param  = c(0,1),
+                                                               initial= 0),
+                                                  beta4 = list(param  = c(0,1),
+                                                               initial= 0)))))
+
+
+
+
+```
+
+```{r}
+# samples
+# prediction dataset
+
+
+samples = inla.posterior.sample(1000, model)
+samples2 = inla.posterior.sample(1000, model2)
+samples3 = inla.posterior.sample(1000, model3)
+
+
+#load(here::here('data_SCV_model/pred-coordinates.rda'))
+load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/pred-coordinates.rda")
+
+coords.0.sf <- st_as_sf(as.data.frame(coords.0),
+                        coords = c("X", "Y"),
+                        crs = st_crs(coords.sf))
+
+
+aa = (st_intersects(coords.0.sf, bcrs.ne.grouped, sparse = FALSE))
+idx = apply(aa,1,function(x) 
+   ifelse((!all(is.na(x))), which((x)),NA))
+coords.0.sf$bcr  = bcrs.ne.grouped$BCR[idx]
+coords.0.sf$bcr_idx  = idx
+
+
+A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
+
+```
+
+# Model 4: Regional varying time trend with CAR str
+
+Model for occurrences: $$
+\text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t 
+$$ Model for detection $$
+>>>>>>> Stashed changes
+\text{logit}(p_s) = \alpha_0 + \alpha X(s)
+$$
+
+```{r}
 #| label: model_bcr2
+
+
 # bcr model ---------------------------------------------------------------
 
 library(spdep)
@@ -521,7 +644,7 @@ formula4 = inla.mdata(cbind(Ycounts,Ncounts),Int_det,
   f(spatialfield, 
     model = spde)
 
-model4 <- inla(formula4, #the formula
+time4 = system.time(model4 <- inla(formula4, #the formula
                data=inla.stack.data(stk4),  #the data stack
                family= '0binomialS',   #which family the data comes from
                control.fixed =  list(prec = 1, prec.intercept = 1),
@@ -540,7 +663,7 @@ model4 <- inla(formula4, #the formula
                                                   beta3 = list(param  = c(0,1),
                                                                initial= 0),
                                                   beta4 = list(param  = c(0,1),
-                                                               initial= 0))))
+                                                               initial= 0)))))
 
 
 
@@ -557,7 +680,9 @@ samples2 = inla.posterior.sample(1000, model2)
 samples4 = inla.posterior.sample(1000, model4)
 
 
-load(here::here('data_SCV_model/pred-coordinates.rda'))
+#load(here::here('data_SCV_model/pred-coordinates.rda'))
+load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/pred-coordinates.rda")
+
 coords.0.sf <- st_as_sf(as.data.frame(coords.0),
                         coords = c("X", "Y"),
                         crs = st_crs(coords.sf))
@@ -591,6 +716,7 @@ kable(tt,  digits = 2)
 
 ```
 
+<<<<<<< Updated upstream
 ### LGOCV
 
 ```{r}
@@ -653,6 +779,8 @@ ggplot()+geom_sf(data=df_sf)+
 
 ```
 
+=======
+>>>>>>> Stashed changes
 ## Fixed effect
 
 ```{r}
@@ -664,7 +792,10 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
   index = c("Model 1" = 2, "Model 2" = 1, "Model 3" = 1)
 )
 
+<<<<<<< Updated upstream
 #xtable::xtable(tab1,digits=2)
+=======
+>>>>>>> Stashed changes
 
 ```
 
@@ -748,7 +879,7 @@ p4 =  ggplot() +
 p1 + p2   + p4 + plot_layout(ncol = 3, guides = "collect")& theme(legend.position = 'right') 
   # plot_annotation(title = 'Mean time trend',
   #                 subtitle = 'logit scale')+
-ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
+#ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
@@ -818,20 +949,29 @@ p44 = ggplot() +
 p1 + p2 + p4 + p11 +p22 +p44 + plot_layout(ncol = 3,  guides = "collect") +
   plot_annotation(title = "")& theme(legend.position = 'right') 
 
-ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
+#ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
 ```{r}
+<<<<<<< Updated upstream
 pred.stars.long = dd |> dplyr::select(c(x,y,z1_1,z1_2,z1_4,check1,check2,check4)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
+=======
+
+pred.stars.long = dd |> dplyr::select(c(x,y,z1_1,z1_2,z1_4,check1,check2,check3)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
+>>>>>>> Stashed changes
 trend1 <-  dd |> 
   dplyr::select(c(x,y,z1_1,z1_2,z1_4)) |>
-  terra::rast() |> 
-  rename(`SVCM 1` = z1_1,
+  dplyr::rename(`SVCM 1` = z1_1,
          `SVCM 2` = z1_2,
-         `SVCM 3` = z1_4)
+         `SVCM 3` = z1_4)|>
+  terra::rast() 
+  
 trend2 <-  dd |> 
   dplyr::select(c(x,y,check1,check2,check4)) |>
+    dplyr::rename(`SVCM 1` = check1,
+         `SVCM 2` = check2,
+         `SVCM 3` = check4) |>
   # mutate(
   #   check1= case_when(
   #           check1 == 1 ~ "positive",
@@ -847,14 +987,10 @@ trend2 <-  dd |>
   #           check4 == -1 ~ "negative",
   #           .default = "0"
   # )) |>
-  terra::rast() |> 
-  rename(`SVCM 1` = check1,
-         `SVCM 2` = check2,
-         `SVCM 3` = check4)
-
-values(trend2$`SVCM 1`) <- as.factor(values(trend2$`SVCM 1`))
-values(trend2$`SVCM 2`) <- as.factor(values(trend2$`SVCM 2`))
-values(trend2$`SVCM 3`) <- as.factor(values(trend2$`SVCM 3`))
+  terra::rast() 
+terra::values(trend2$`SVCM 1`) <- as.factor(terra::values(trend2$`SVCM 1`))
+terra::values(trend2$`SVCM 2`) <- as.factor(terra::values(trend2$`SVCM 2`))
+terra::values(trend2$`SVCM 3`) <- as.factor(terra::values(trend2$`SVCM 3`))
 
 library(scales)
 library(tidyterra)
@@ -884,7 +1020,7 @@ p2 = ggplot() + geom_spatraster(data=trend2)+ facet_wrap(~factor(lyr), ncol = 3)
 
 p1+p2+plot_layout(ncol=1)
 
-ggsave(filename = "svc_trends.pdf",dpi = 300,width = 3000,units = "px")
+ggsave(filename = "SVC_trends.pdf",dpi = 300,width = 3000,units = "px")
 
 ```
 
@@ -892,21 +1028,21 @@ ggsave(filename = "svc_trends.pdf",dpi = 300,width = 3000,units = "px")
 
 ```{r}
 
-plot_inla_effect = function(effect)
-{
-  data.frame(effect) %>%
-    ggplot() + geom_line(aes(ID, -mean)) +
-    geom_ribbon(aes(ID, ymin  = -X0.025quant, ymax = -X0.975quant), alpha = 0.3)
-}
-
-p1 = plot_inla_effect(model$summary.random$time) + ggtitle(
-"model 1")
-p2 = plot_inla_effect(model2$summary.random$i1) + ggtitle(
-"model 2")
-p3 = plot_inla_effect(model3$summary.random$bcr_idx) + ggtitle(
-"model 3")
-
-p1+p2+p3
+# plot_inla_effect = function(effect)
+# {
+#   data.frame(effect) %>%
+#     ggplot() + geom_line(aes(ID, -mean)) +
+#     geom_ribbon(aes(ID, ymin  = -X0.025quant, ymax = -X0.975quant), alpha = 0.3)
+# }
+# 
+# p1 = plot_inla_effect(model$summary.random$time) + ggtitle(
+# "model 1")
+# p2 = plot_inla_effect(model2$summary.random$i1) + ggtitle(
+# "model 2")
+# p3 = plot_inla_effect(model3$summary.random$bcr_idx) + ggtitle(
+# "model 3")
+# 
+# p1+p2+p3
 ```
 
 ## Parameters for the detection part
@@ -932,9 +1068,15 @@ and probability of occurrence. These are for year 2019.
 
 ```{r}
 # predict  occurrence probability -----------------------------------------
+<<<<<<< Updated upstream
 # -1 + Int_occ + scale_year + 
 #  #f(time, model =  "iid") + 
 #  f(spatialfield, model=spde) 
+=======
+ # -1 + Int_occ + scale_year + 
+ #  #f(time, model =  "iid") + 
+ #  f(spatialfield, model=spde) 
+>>>>>>> Stashed changes
 
 
 func = function(..., year)
@@ -1077,7 +1219,7 @@ p1 + p2 + p3 + plot_layout(guides = "collect", ncol = 3) & theme(legend.position
   #   subtitle = 'posterior mean',
   #   caption = ''
   # )
-ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
+#ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
@@ -1104,7 +1246,7 @@ p1 = ggplot() + geom_spatraster(data=occ)+ facet_wrap(~lyr, ncol = 3)  + coord_e
         axis.text.x = element_text(size=10, angle=45,vjust = 0.25),
         axis.text.y = element_text(size=10))
 
-ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
+#ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
 
 
 
@@ -1143,7 +1285,7 @@ p2 = ggplot() +
 
 p1 + p2
 
-ggsave(filename = "SVC_mean_diff.pdf",dpi = 300,width = 4000,units = "px")
+#ggsave(filename = "SVC_mean_diff.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
@@ -1172,5 +1314,5 @@ ggplot() + geom_spatraster(data=occ)+ facet_wrap(~lyr, ncol = 3)  + coord_equal(
         axis.text.y = element_text(size=10))
 
 
-ggsave(filename = "SVC_mean_diff2.pdf",dpi = 300,width = 3000,units = "px")
+#ggsave(filename = "SVC_mean_diff2.pdf",dpi = 300,width = 3000,units = "px")
 ```

@@ -142,10 +142,13 @@ z_i &\sim \mathrm{Bernoulli}(\psi_i) ~\mbox{for } i =1,\ldots,N_{sites} \\
 
 \end{align*}
 ```
+<<<<<<< Updated upstream
 
 
 
 
+=======
+>>>>>>> Stashed changes
 ```{r}
 #| warning: false
 #| message: false
@@ -231,7 +234,11 @@ mean(log(lgocv_occ$cv))
 
 Now this is based on the counts data (assuming this is correct). We would like to implement let say the brier score or AUC for binary outcomes. Thus, we fit the following model to the presence-absence data:
 
+<<<<<<< Updated upstream
 
+=======
+```{=tex}
+>>>>>>> Stashed changes
 \begin{align}
 
 z_i &\sim \mathrm{Benroulli}(\psi_i) \quad \mbox{for } i =1,\ldots,N_{sites} \\
@@ -243,10 +250,14 @@ z_i &\sim \mathrm{Benroulli}(\psi_i) \quad \mbox{for } i =1,\ldots,N_{sites} \\
 \mathrm{logit}(p_{ij}) &= \alpha_0 + \alpha_1 \mbox{day}_{ij} 
 
 \end{align}
+<<<<<<< Updated upstream
 
 
 
 
+=======
+```
+>>>>>>> Stashed changes
 ```{r}
 data_bin = data.frame(site = rep(1:(J.x*J.y), 4),
            n = 1,
