@@ -662,6 +662,27 @@ func_det = function(...)
 det1 = inla.posterior.sample.eval(func_det, sample1)
 det2 = inla.posterior.sample.eval(func_det, sample2)
 det3 = inla.posterior.sample.eval(func_det, sample3)
+d0 = data.frame(time = time,
+                m1 = apply(det1 , 1,mean),
+                q11 = apply(det1 , 1,quantile, 0.05),
+                q12 = apply(det1 , 1,quantile, 0.95),
+                
+                 m2 = apply(det2, 1,mean),
+                q21 = apply(det2 , 1,quantile, 0.05),
+                q22 = apply(det2 , 1,quantile, 0.95),
+               
+                m3 = apply(det3 , 1,mean),
+                q31 = apply(det3, 1,quantile, 0.05),
+                q32 = apply(det3, 1,quantile, 0.95))
+              
+d0 %>% ggplot() + 
+  geom_line(aes(time, m1, color = "model1")) +
+    geom_line(aes(time, m2, color = "model2")) +
+    geom_line(aes(time, m3, color = "model3") )
+
+  geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0.3, fill = "red") +
+   geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0.3, fill = "blue") +
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") 
 
 d1 = data.frame(time = time,
                 m1 = apply(inla.link.logit(det1,inverse = T) , 1,mean),
@@ -672,16 +693,16 @@ d1 = data.frame(time = time,
                 q21 = apply(inla.link.logit(det2,inverse = T) , 1,quantile, 0.05),
                 q22 = apply(inla.link.logit(det2,inverse = T) , 1,quantile, 0.95),
                
-                m3 = apply(inla.link.logit(det2,inverse = T) , 1,mean),
+                m3 = apply(inla.link.logit(det3,inverse = T) , 1,mean),
                 q31 = apply(inla.link.logit(det3,inverse = T) , 1,quantile, 0.05),
                 q32 = apply(inla.link.logit(det3,inverse = T) , 1,quantile, 0.95))
               
 d1 %>% ggplot() + 
   geom_ribbon(aes(time, ymin = q11, ymax = q12), alpha = 0.3, fill = "red") +
    geom_ribbon(aes(time, ymin = q21, ymax = q22), alpha = 0.3, fill = "blue") +
-   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") +
-  geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
-  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
+   geom_ribbon(aes(time, ymin = q31, ymax = q32), alpha = 0.3, fill = "black") #+
+  #geom_point(data = data, aes(x = mday, y = counts/nvisits)) + 
+#  geom_smooth(data = data, aes(x = mday, y = counts/nvisits))
 
 ggplot() + geom_point(data = data, aes(x = mtod,  y = counts/nvisits))  +
   geom_smooth(data = data, aes(x = mtod, y = counts/nvisits))
