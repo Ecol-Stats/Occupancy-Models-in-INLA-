@@ -1,5 +1,8 @@
 ---
 title: "Data Simulation"
+number-sections: true
+execute: 
+  eval: true
 format:
   html: 
     code-link: true
@@ -7,7 +10,6 @@ format:
     code-tools: 
       source: false
       toggle: true
-  pdf: default
 editor: visual
 editor_options: 
   chunk_output_type: console
@@ -361,20 +363,19 @@ ggplot() + tidyterra::geom_spatraster(data=spatio_temp_field) +
 Then we can simulate the occupancy state of cell $i$ at time $t$ (@fig-space-time-occ) as follows:
 
 ```{=tex}
-\begin{align}z_{it}&\sim \mathrm{Bernoulli}(\psi_{it})\nonumber\\\mathrm{logit}(\psi_{it}) &= \beta_0 + \beta_1\ x_i + \beta_2 x^2_i + \omega_{it}.\end{align}
+\begin{align}z_{it}&\sim \mathrm{Bernoulli}(\psi_{it})\nonumber\\\mathrm{logit}(\psi_{it}) &= \beta_0 + \beta_1 x^2_i + \omega_{it}.\end{align}
 ```
 ```{r}
 # State process model coeficcients
-beta <- c(NA,NA,NA)
-beta[1] <- qlogis(0.2) # Base line occupancy probability
-beta[2] <- 0.75 # environmental covariate effect
-beta[3] <- 1 # environmental covariate quadratic effect
+beta <- c(NA,NA)
+beta[1] <- -0.5
+beta[2] <- - 1 
 
 z.mat = psi.mat = matrix(NA,ncol=nT,nrow=dim(coord_grid)[1])
 
 for(t in 1:nT){
   # Occupancy probabilities
-  psi.mat[,t] = inla.link.logit(beta[1] + beta[2]*x_s + beta[3]*x_s**2 + omega_st[,t], inverse = T)
+  psi.mat[,t] = inla.link.logit(beta[1] + beta[2]*x_s^2 + omega_st[,t], inverse = T)
   # True occupancy state
   z.mat[,t] <- rbinom(ncells, size = 1, prob = psi.mat[,t])
 }
@@ -394,6 +395,7 @@ for( t in 2:nT){
 names(spatio_temp_psi) <- paste('time',1:nT,sep=' ')
 ggplot() + tidyterra::geom_spatraster(data=spatio_temp_psi) +
    facet_wrap(~lyr, ncol = 3) + scale_fill_scico(name=expression(psi(i,t)),palette = 'roma',direction = -1)
+
 
 spatio_temp_psi |>
 writeRaster(filename = paste('raster data','spatsat_occ_probs.tif',sep='/'),
@@ -436,8 +438,9 @@ for(t in 1:nT){
   p.mat[,t] = inla.link.logit(alpha[1] + alpha[2]*g_s[site_id], inverse = T)
   # Observed occurrences
   y.mat[,t] <- suppressWarnings(rbinom(n = nsites, size = nvisits.mat[,t],
-                                       prob = p.mat[,t]* z.mat[,t]))
+                                       prob = p.mat[,t]* z.mat[site_id,t]))
 }
+
 
 ```
 
@@ -451,9 +454,10 @@ Occ_data_2 <- suppressWarnings(customGrid |>
   filter(sample==1) |>
   dplyr::select(-c('sample'))
 
-# Add data
-Occ_data_2[,paste('y',1:nT,sep='')] = y.mat # counts
-Occ_data_2[,paste('nvisit',1:nT,sep='')] = nvisits.mat # visits per year
+
+y_data = data.frame(y = y.mat , cellid = site_id, nvisits = nvisits.mat)
+
+Occ_data_2 <- left_join(Occ_data_2,y_data,by = "cellid")
 
 # append coordinates as columns
 Occ_data_2[,c('x.loc','y.loc')] <- st_coordinates(Occ_data_2)
@@ -471,14 +475,14 @@ Here we simulate from a spatially varying coefficient model by adopting a space 
 
 # realization of the random field
 set.seed(seed)
-beta_t <- book.rMatern(nT, coord_grid, range = range_spde,
+beta_1 <- book.rMatern(nT, coord_grid, range = range_spde,
                       sigma = sigma_spde)
 
 # introduce temporal correlation
-beta_t[, 1] <- beta_t[, 1] / (1 - rho^2)
+beta_1[, 1] <- beta_1[, 1] / (1 - rho^2)
 
 for (t in 2:nT) {
-  beta_t[, t] <- beta_t[, t - 1] * rho + beta_t[, t] *
+  beta_1[, t] <- beta_1[, t - 1] * rho + beta_1[, t] *
     (1 - rho^2)
 }
 
@@ -502,24 +506,30 @@ beta0 <- -1
 
 z.mat = psi.mat = matrix(NA,ncol=nT,nrow=dim(coord_grid)[1])
 
+scale_t <- scale(1:nT) %>% c()
+
 for(t in 1:nT){
   # Occupancy probabilities
-  psi.mat[,t] = inla.link.logit(beta0 + beta_t[,t] + omega_s, inverse = T)
+  psi.mat[,t] = inla.link.logit(beta0 + beta_1[,t]*scale_t[t] + omega_s, inverse = T)
   # True occupancy state
   z.mat[,t] <- rbinom(ncells, size = 1, prob = psi.mat[,t])
 }
 
-# simulate data
+
+# Observational process model coeficcients
+alpha <- c(NA,NA)
+alpha[1] <- qlogis(0.3) # Base line detection probability
+alpha[2] <- -1 # detection covariate effect
+
+y.mat = p.mat = matrix(NA,ncol=nT,nrow=nsites)
 
 for(t in 1:nT){
-  # Detection probabilities
+  # Detection probabilities (constant through time)
   p.mat[,t] = inla.link.logit(alpha[1] + alpha[2]*g_s[site_id], inverse = T)
   # Observed occurrences
-  y.mat[,t] <- rbinom(n = nsites,
-                      size = nvisits.mat[,t],
-                      prob = p.mat[,t]*z.mat)
+  y.mat[,t] <- suppressWarnings(rbinom(n = nsites, size = nvisits.mat[,t],
+                                       prob = p.mat[,t]* z.mat[site_id,t]))
 }
-
 
 # centroid of the cell
 Occ_data_3 <- customGrid |>
@@ -527,14 +537,20 @@ Occ_data_3 <- customGrid |>
   filter(sample==1) |>
   dplyr::select(-c('sample'))
 
-# Add data
-Occ_data_3[,paste('y',1:nT,sep='')] = y.mat # counts
-Occ_data_3[,paste('nvisit',1:nT,sep='')] = nvisits.mat # visits per year
+# data 
+
+y_data = data.frame(y = y.mat , cellid = site_id, nvisits = nvisits.mat)
+
+Occ_data_3 <- left_join(Occ_data_3,y_data,by = "cellid")
+
+
 
 # append coordinates as columns
 Occ_data_3[,c('x.loc','y.loc')] <- st_coordinates(Occ_data_3)
 Occ_data_3 = st_drop_geometry(Occ_data_3)
+
 # Save CSV file for analysis
+
 write.csv(Occ_data_3,file='Occ_data_3.csv',row.names = F)
 ```
 
@@ -550,7 +566,29 @@ for( t in 2:nT){
 }
 names(spatio_svc) <- paste('time',1:nT,sep=' ')
 ggplot() + tidyterra::geom_spatraster(data=spatio_svc) +
-   facet_wrap(~lyr, ncol = 3) + scale_fill_scico(name=expression(psi(s,t)),palette = 'roma',direction = -1)
+   facet_wrap(~lyr, ncol = 3) + scale_fill_scico(name=expression(psi(s,t)),palette = 'roma',direction = -1) 
+
+#############################################
+# spatio_svc= rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],z.mat[, 1]))
+# 
+# for( t in 2:nT){
+#    spatio_svc = c(spatio_svc,rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],z.mat[, t])))
+# }
+# names(spatio_svc) <- paste('time',1:nT,sep=' ')
+# 
+# ggplot() + tidyterra::geom_spatraster(data=spatio_svc$`time 5`) +
+#     scale_fill_scico(name=expression(psi(s,t)),palette = 'roma',direction = -1) +
+#    geom_sf(data=Occ_data_3,aes(color=factor(X5)))
+# 
+# ################################################
+# 
+# 
+# ggplot() + tidyterra::geom_spatraster(data=spatio_svc$`time 5`) +
+#     scale_fill_scico(name=expression(psi(s,t)),palette = 'roma',direction = -1) +
+#    #geom_sf(data=Occ_data_3,aes(color=factor(X5)))
+#   geom_sf(data=Occ_data_3,aes(color=factor(ifelse(y.5>0,1,0))))
+
+
 
 spatio_svc |>
 writeRaster(filename = paste('raster data','spatio_svc_probs.tif',sep='/'),

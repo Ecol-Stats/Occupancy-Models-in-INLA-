@@ -144,17 +144,17 @@ div.csl-indent {
         <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
    
   <ul>
-<li><a href="#set_up" id="toc-set_up" class="nav-link active" data-scroll-target="#set_up">Set up</a></li>
+<li><a href="#set_up" id="toc-set_up" class="nav-link active" data-scroll-target="#set_up"><span class="header-section-number">1</span> Set up</a></li>
   <li>
-<a href="#sec-SSOM" id="toc-sec-SSOM" class="nav-link" data-scroll-target="#sec-SSOM">Simulate data for a simple spatial occupancy model</a>
+<a href="#sec-SSOM" id="toc-sec-SSOM" class="nav-link" data-scroll-target="#sec-SSOM"><span class="header-section-number">2</span> Simulate data for a simple spatial occupancy model</a>
   <ul class="collapse">
-<li><a href="#state-process-model-sub-component" id="toc-state-process-model-sub-component" class="nav-link" data-scroll-target="#state-process-model-sub-component">State process model sub-component</a></li>
-  <li><a href="#observational-process-model-sub-component" id="toc-observational-process-model-sub-component" class="nav-link" data-scroll-target="#observational-process-model-sub-component">Observational process model sub-component</a></li>
+<li><a href="#state-process-model-sub-component" id="toc-state-process-model-sub-component" class="nav-link" data-scroll-target="#state-process-model-sub-component"><span class="header-section-number">2.1</span> State process model sub-component</a></li>
+  <li><a href="#observational-process-model-sub-component" id="toc-observational-process-model-sub-component" class="nav-link" data-scroll-target="#observational-process-model-sub-component"><span class="header-section-number">2.2</span> Observational process model sub-component</a></li>
   </ul>
 </li>
-  <li><a href="#sec-STOM" id="toc-sec-STOM" class="nav-link" data-scroll-target="#sec-STOM">Simulate space-time occupancy data</a></li>
-  <li><a href="#sec-SVCOM" id="toc-sec-SVCOM" class="nav-link" data-scroll-target="#sec-SVCOM">Spatially varying coefficients (SVC)</a></li>
-  </ul><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="projects.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+  <li><a href="#sec-STOM" id="toc-sec-STOM" class="nav-link" data-scroll-target="#sec-STOM"><span class="header-section-number">3</span> Simulate space-time occupancy data</a></li>
+  <li><a href="#sec-SVCOM" id="toc-sec-SVCOM" class="nav-link" data-scroll-target="#sec-SVCOM"><span class="header-section-number">4</span> Spatially varying coefficients (SVC)</a></li>
+  </ul></nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
@@ -172,7 +172,8 @@ div.csl-indent {
   
 
 </header><p>This section describes the steps to simulate occurrence data for fitting spatially explicit occupancy models in <a href="https://www.r-inla.org/">R-INLA</a>.</p>
-<section id="set_up" class="level1"><h1>Set up</h1>
+<section id="set_up" class="level1" data-number="1"><h1 data-number="1">
+<span class="header-section-number">1</span> Set up</h1>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Load the libraries</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va">INLA</span><span class="op">)</span></span>
@@ -223,7 +224,8 @@ div.csl-indent {
 </div>
 </div>
 </div>
-</section><section id="sec-SSOM" class="level1"><h1>Simulate data for a simple spatial occupancy model</h1>
+</section><section id="sec-SSOM" class="level1" data-number="2"><h1 data-number="2">
+<span class="header-section-number">2</span> Simulate data for a simple spatial occupancy model</h1>
 <p>We simulate three different Gaussian Markov Random fields (GMRF) using the <code>inla.qsample</code> function.</p>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Spatial boundary</span></span>
@@ -288,7 +290,8 @@ div.csl-indent {
 \mbox{ Observational process:}&amp; \begin{cases} y_i \sim \mathrm{Binomial}(K_i,z_i \times p_i) \nonumber \\\mathrm{logit}(p_i) = \alpha_0 + \alpha_1 \ g(s) \\
 \end{cases}
 \end{align}\]</span>
-<section id="state-process-model-sub-component" class="level2"><h2 class="anchored" data-anchor-id="state-process-model-sub-component">State process model sub-component</h2>
+<section id="state-process-model-sub-component" class="level2" data-number="2.1"><h2 data-number="2.1" class="anchored" data-anchor-id="state-process-model-sub-component">
+<span class="header-section-number">2.1</span> State process model sub-component</h2>
 <p>Define model parameters <span class="math inline">\(\beta\)</span> and compute the occupancy probabilities <span class="math inline">\(\psi\)</span> and occupancy states <span class="math inline">\(z\)</span> (<a href="#fig-occ-state">Figure&nbsp;3</a>)</p>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
@@ -313,7 +316,8 @@ div.csl-indent {
 </div>
 </div>
 </div>
-</section><section id="observational-process-model-sub-component" class="level2"><h2 class="anchored" data-anchor-id="observational-process-model-sub-component">Observational process model sub-component</h2>
+</section><section id="observational-process-model-sub-component" class="level2" data-number="2.2"><h2 data-number="2.2" class="anchored" data-anchor-id="observational-process-model-sub-component">
+<span class="header-section-number">2.2</span> Observational process model sub-component</h2>
 <p>Random sample of 20 % of the total cells and draw a random number of <span class="math inline">\(K\)</span> visits per cell by setting a minimum of 1 and a maximum of 5 visits per site/cell.</p>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># number of cells/sites in the sample</span></span>
@@ -385,21 +389,21 @@ div.csl-indent {
 </tr>
 <tr class="even">
 <td style="text-align: right;">5</td>
-<td style="text-align: right;">3</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">13.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">6</td>
-<td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">16.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">7</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: right;">19.5</td>
 <td style="text-align: right;">1.5</td>
@@ -431,7 +435,8 @@ div.csl-indent {
 </div>
 </div>
 </div>
-</section></section><section id="sec-STOM" class="level1"><h1>Simulate space-time occupancy data</h1>
+</section></section><section id="sec-STOM" class="level1" data-number="3"><h1 data-number="3">
+<span class="header-section-number">3</span> Simulate space-time occupancy data</h1>
 <p>Here we simulate data for a space-time occupancy model by defining a SPDE for the spatial domain and an autoregressive model of order 1, i.e.&nbsp;AR(1), for the time component (this is separable space-time model where the spatio-temporal covariance is defined by the Kronecker product of the covariances of the spatial and temporal random effects, see <span class="citation" data-cites="cameletti2012">(<a href="#ref-cameletti2012" role="doc-biblioref">Cameletti et al. 2012</a>)</span> for more details).</p>
 <p>We set a total of <code>nT = 5</code> discrete time points where the occupancy state changes. We can use the <code>book.rspde()</code> function available in the <code>spde-book-functions.R</code> file <span class="citation" data-cites="krainski2018">(<a href="#ref-krainski2018" role="doc-biblioref">Krainski et al. 2018</a>)</span> to simulate <span class="math inline">\(t = 1,\ldots,nT\)</span> independent realizations of the random field<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. Then, temporal correlation is introduced:</p>
 <p><span class="math display">\[
@@ -480,19 +485,18 @@ div.csl-indent {
 </div>
 </div>
 <p>Then we can simulate the occupancy state of cell <span class="math inline">\(i\)</span> at time <span class="math inline">\(t\)</span> (<a href="#fig-space-time-occ">Figure&nbsp;6</a>) as follows:</p>
-<span class="math display">\[\begin{align}z_{it}&amp;\sim \mathrm{Bernoulli}(\psi_{it})\nonumber\\\mathrm{logit}(\psi_{it}) &amp;= \beta_0 + \beta_1\ x_i + \beta_2 x^2_i + \omega_{it}.\end{align}\]</span>
+<span class="math display">\[\begin{align}z_{it}&amp;\sim \mathrm{Bernoulli}(\psi_{it})\nonumber\\\mathrm{logit}(\psi_{it}) &amp;= \beta_0 + \beta_1 x^2_i + \omega_{it}.\end{align}\]</span>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
-<span><span class="va">beta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
-<span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.2</span><span class="op">)</span> <span class="co"># Base line occupancy probability</span></span>
-<span><span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0.75</span> <span class="co"># environmental covariate effect</span></span>
-<span><span class="va">beta</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="co"># environmental covariate quadratic effect</span></span>
+<span><span class="va">beta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
+<span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">0.5</span></span>
+<span><span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span> <span class="fl">1</span> </span>
 <span></span>
 <span><span class="va">z.mat</span> <span class="op">=</span> <span class="va">psi.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html">dim</a></span><span class="op">(</span><span class="va">coord_grid</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="co"># Occupancy probabilities</span></span>
-<span>  <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">x_s</span> <span class="op">+</span> <span class="va">beta</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">*</span><span class="va">x_s</span><span class="op">**</span><span class="fl">2</span> <span class="op">+</span> <span class="va">omega_st</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
+<span>  <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">x_s</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="va">omega_st</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
 <span>  <span class="co"># True occupancy state</span></span>
 <span>  <span class="va">z.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span><span class="va">ncells</span>, size <span class="op">=</span> <span class="fl">1</span>, prob <span class="op">=</span> <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -537,7 +541,7 @@ div.csl-indent {
 <span>  <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
 <span>  <span class="co"># Observed occurrences</span></span>
 <span>  <span class="va">y.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>, size <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>,</span>
-<span>                                       prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span> <span class="va">z.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span>                                       prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
@@ -549,9 +553,10 @@ div.csl-indent {
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'sample'</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Add data</span></span>
-<span><span class="va">Occ_data_2</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'y'</span>,<span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,sep<span class="op">=</span><span class="st">''</span><span class="op">)</span><span class="op">]</span> <span class="op">=</span> <span class="va">y.mat</span> <span class="co"># counts</span></span>
-<span><span class="va">Occ_data_2</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'nvisit'</span>,<span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,sep<span class="op">=</span><span class="st">''</span><span class="op">)</span><span class="op">]</span> <span class="op">=</span> <span class="va">nvisits.mat</span> <span class="co"># visits per year</span></span>
+<span></span>
+<span><span class="va">y_data</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y.mat</span> , cellid <span class="op">=</span> <span class="va">site_id</span>, nvisits <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">Occ_data_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_2</span>,<span class="va">y_data</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># append coordinates as columns</span></span>
 <span><span class="va">Occ_data_2</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'x.loc'</span>,<span class="st">'y.loc'</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">Occ_data_2</span><span class="op">)</span></span>
@@ -560,19 +565,20 @@ div.csl-indent {
 <span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html">write.csv</a></span><span class="op">(</span><span class="va">Occ_data_2</span>,file<span class="op">=</span><span class="st">'Occ_data_2.csv'</span>,row.names <span class="op">=</span> <span class="cn">F</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-</section><section id="sec-SVCOM" class="level1"><h1>Spatially varying coefficients (SVC)</h1>
+</section><section id="sec-SVCOM" class="level1" data-number="4"><h1 data-number="4">
+<span class="header-section-number">4</span> Spatially varying coefficients (SVC)</h1>
 <p>Here we simulate from a spatially varying coefficient model by adopting a space model with Matérn spatial covariance and a AR(1) time component. The same setting described for the space-time model will be used to drawn independent realization from the random field by using the <code>book.rMatern()</code>function. Then, temporal autocorrelation will be introduced to the dynamic regression coefficient <span class="math inline">\(\beta_t\)</span> through the AR(1) structure described in the previous section (Note: The term <span class="math inline">\((1 - \rho^2)\)</span> is added because of INLA internal AR(1) model parametrization; <span class="citation" data-cites="krainski2018">(<a href="#ref-krainski2018" role="doc-biblioref">Krainski et al. 2018</a>)</span>).</p>
 <div class="cell">
 <details><summary>Code</summary><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># realization of the random field</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="va">seed</span><span class="op">)</span></span>
-<span><span class="va">beta_t</span> <span class="op">&lt;-</span> <span class="fu">book.rMatern</span><span class="op">(</span><span class="va">nT</span>, <span class="va">coord_grid</span>, range <span class="op">=</span> <span class="va">range_spde</span>,</span>
+<span><span class="va">beta_1</span> <span class="op">&lt;-</span> <span class="fu">book.rMatern</span><span class="op">(</span><span class="va">nT</span>, <span class="va">coord_grid</span>, range <span class="op">=</span> <span class="va">range_spde</span>,</span>
 <span>                      sigma <span class="op">=</span> <span class="va">sigma_spde</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># introduce temporal correlation</span></span>
-<span><span class="va">beta_t</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">beta_t</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">rho</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">beta_1</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">beta_1</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">rho</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">2</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">beta_t</span><span class="op">[</span>, <span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">beta_t</span><span class="op">[</span>, <span class="va">t</span> <span class="op">-</span> <span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="va">rho</span> <span class="op">+</span> <span class="va">beta_t</span><span class="op">[</span>, <span class="va">t</span><span class="op">]</span> <span class="op">*</span></span>
+<span>  <span class="va">beta_1</span><span class="op">[</span>, <span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">beta_1</span><span class="op">[</span>, <span class="va">t</span> <span class="op">-</span> <span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="va">rho</span> <span class="op">+</span> <span class="va">beta_1</span><span class="op">[</span>, <span class="va">t</span><span class="op">]</span> <span class="op">*</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">rho</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
@@ -591,24 +597,30 @@ div.csl-indent {
 <span></span>
 <span><span class="va">z.mat</span> <span class="op">=</span> <span class="va">psi.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html">dim</a></span><span class="op">(</span><span class="va">coord_grid</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
+<span><span class="va">scale_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/scale.html">scale</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="co"># Occupancy probabilities</span></span>
-<span>  <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">beta0</span> <span class="op">+</span> <span class="va">beta_t</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">+</span> <span class="va">omega_s</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
+<span>  <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">beta0</span> <span class="op">+</span> <span class="va">beta_1</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span><span class="va">scale_t</span><span class="op">[</span><span class="va">t</span><span class="op">]</span> <span class="op">+</span> <span class="va">omega_s</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
 <span>  <span class="co"># True occupancy state</span></span>
 <span>  <span class="va">z.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span><span class="va">ncells</span>, size <span class="op">=</span> <span class="fl">1</span>, prob <span class="op">=</span> <span class="va">psi.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># simulate data</span></span>
+<span></span>
+<span><span class="co"># Observational process model coeficcients</span></span>
+<span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span> <span class="co"># Base line detection probability</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1</span> <span class="co"># detection covariate effect</span></span>
+<span></span>
+<span><span class="va">y.mat</span> <span class="op">=</span> <span class="va">p.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="va">nsites</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="co"># Detection probabilities</span></span>
+<span>  <span class="co"># Detection probabilities (constant through time)</span></span>
 <span>  <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
 <span>  <span class="co"># Observed occurrences</span></span>
-<span>  <span class="va">y.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>,</span>
-<span>                      size <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>,</span>
-<span>                      prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span><span class="va">z.mat</span><span class="op">)</span></span>
+<span>  <span class="va">y.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>, size <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>,</span>
+<span>                                       prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span></span>
 <span></span>
 <span><span class="co"># centroid of the cell</span></span>
 <span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="va">customGrid</span> <span class="op">|&gt;</span></span>
@@ -616,14 +628,20 @@ div.csl-indent {
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'sample'</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Add data</span></span>
-<span><span class="va">Occ_data_3</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'y'</span>,<span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,sep<span class="op">=</span><span class="st">''</span><span class="op">)</span><span class="op">]</span> <span class="op">=</span> <span class="va">y.mat</span> <span class="co"># counts</span></span>
-<span><span class="va">Occ_data_3</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'nvisit'</span>,<span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,sep<span class="op">=</span><span class="st">''</span><span class="op">)</span><span class="op">]</span> <span class="op">=</span> <span class="va">nvisits.mat</span> <span class="co"># visits per year</span></span>
+<span><span class="co"># data </span></span>
+<span></span>
+<span><span class="va">y_data</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y.mat</span> , cellid <span class="op">=</span> <span class="va">site_id</span>, nvisits <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_3</span>,<span class="va">y_data</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
+<span></span>
+<span></span>
 <span></span>
 <span><span class="co"># append coordinates as columns</span></span>
 <span><span class="va">Occ_data_3</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'x.loc'</span>,<span class="st">'y.loc'</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">Occ_data_3</span><span class="op">)</span></span>
 <span><span class="va">Occ_data_3</span> <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_geometry.html">st_drop_geometry</a></span><span class="op">(</span><span class="va">Occ_data_3</span><span class="op">)</span></span>
+<span></span>
 <span><span class="co"># Save CSV file for analysis</span></span>
+<span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html">write.csv</a></span><span class="op">(</span><span class="va">Occ_data_3</span>,file<span class="op">=</span><span class="st">'Occ_data_3.csv'</span>,row.names <span class="op">=</span> <span class="cn">F</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>

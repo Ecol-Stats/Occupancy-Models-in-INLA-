@@ -357,19 +357,16 @@ time2 = system.time(model2 <- inla(formula2, #the formula
                                                               initial = 0),
                                                  beta3 = list(param  = c(0,1/3),
                                                               initial= 0),
-<<<<<<< Updated upstream
                                                  beta4 = list(param  = c(0,1/3),
-                                                              initial= 1))))
-=======
-                                                 beta4 = list(param  = c(0,1),
                                                               initial= 1)))))
->>>>>>> Stashed changes
+
+                           
+
 
 
 
 ```
 
-<<<<<<< Updated upstream
 <!-- # Model 3: Regional varying time trend -->
 
 <!-- Model for occurrences: -->
@@ -614,7 +611,7 @@ BCR.adj <- poly2nb(pl = bcrs.ne.grouped)
 W.BCR<- nb2mat(BCR.adj, style = "B") 
 
 
-iset_sp <- inla.spde.make.index(name = "spatialfield",
+  iset_sp <- inla.spde.make.index(name = "spatialfield",
                                 n.spde =  spde$n.spde)
 A_sp <- inla.spde.make.A(mesh = mesh, 
                          loc = cbind(df_INLA$x, df_INLA$y))
@@ -727,7 +724,7 @@ df_sf <- df_INLA %>% mutate(id = 1:nrow(df_INLA)) %>% st_as_sf(coords =c("x","y"
 
 # create buffer of size 300 (based on estimated range) centred at each site
 
-buffer_25 <- st_buffer(df_sf, dist = 150) 
+buffer_25 <- st_buffer(df_sf, dist = 200) 
 
 # empty lists to include the indexes of the leave-out-group for each observation i
 I_i <- list()
@@ -748,6 +745,7 @@ I_i[[i]] <-  df_sf_subset[Buffer_i,] %>%  pull(id)
 }
 
 
+
 ggplot()+geom_sf(data=df_sf)+
   facet_wrap(~year)+
   geom_sf(data=df_sf[I_i[[1]],],color="orange")+
@@ -761,13 +759,13 @@ ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
 
 ```{r}
 
-loocv_m1 <- inla.group.cv(result = model,num.level.sets = 3)
+loocv_m1 <- inla.group.cv(result = model,group.cv = loocv_m2)
 ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
 
-loocv_m2 <- inla.group.cv(result = model2,group.cv = loocv_m1)
+loocv_m2 <- inla.group.cv(result = model2, num.level.sets = 3)
 ULOOCV2 = mean(log(loocv_m2$cv),na.rm=T)
 
-loocv_m4 <- inla.group.cv(result = model4,group.cv = loocv_m1)
+loocv_m4 <- inla.group.cv(result = model4,group.cv = loocv_m2)
 ULOOCV4 = mean(log(loocv_m4$cv),na.rm=T)
 
 
@@ -872,14 +870,14 @@ p4 =  ggplot() +
   theme_bw(base_size = 18) +
   labs(x = "", y
        = "", fill = "", 
-       title = 'Model 4') + theme_maps + theme(text=element_text(family="serif", size=20),
+       title = 'Model 3') + theme_maps + theme(text=element_text(family="serif", size=20),
                                                legend.text = element_text(size=16))+
   guides(colour = guide_colourbar(barheight = unit(10, "cm")))
 
 p1 + p2   + p4 + plot_layout(ncol = 3, guides = "collect")& theme(legend.position = 'right') 
   # plot_annotation(title = 'Mean time trend',
   #                 subtitle = 'logit scale')+
-#ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
+ggsave(filename = "svc_trend.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
@@ -1118,7 +1116,7 @@ dd = data.frame(x = coords.0[,1],
                 y = coords.0[,2],
                 z = apply(aa,1,mean),
                 z2 = apply(aa2,1,mean),
-                z3 = apply(aa3,1,mean),
+                #z3 = apply(aa3,1,mean),
                 z4 = apply(aa4,1,mean))
 pred.stars <- st_as_stars(data.frame(dd), dims = c('x', 'y'))
 lims = range(c(dd$z,dd$z2, dd$z3), na.rm = T)
@@ -1177,7 +1175,7 @@ dd = data.frame(x = coords.0[,1],
                 y = coords.0[,2],
                 z = apply(inla.link.logit(aa, inverse = T),1,mean),
                 z2 = apply(inla.link.logit(aa2, inverse = T),1,mean),
-                z3 = apply(inla.link.logit(aa3, inverse = T),1,mean),
+               # z3 = apply(inla.link.logit(aa3, inverse = T),1,mean),
                 z4 = apply(inla.link.logit(aa4, inverse = T),1,mean))
 pred.stars <- st_as_stars(data.frame(dd), dims = c('x', 'y'))
 lims = c(0,1)
@@ -1219,7 +1217,7 @@ p1 + p2 + p3 + plot_layout(guides = "collect", ncol = 3) & theme(legend.position
   #   subtitle = 'posterior mean',
   #   caption = ''
   # )
-#ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
+ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
@@ -1246,7 +1244,7 @@ p1 = ggplot() + geom_spatraster(data=occ)+ facet_wrap(~lyr, ncol = 3)  + coord_e
         axis.text.x = element_text(size=10, angle=45,vjust = 0.25),
         axis.text.y = element_text(size=10))
 
-#ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
+ggsave(filename = "SVC_Occ_probs.pdf",dpi = 300,width = 4000,units = "px")
 
 
 
@@ -1285,7 +1283,7 @@ p2 = ggplot() +
 
 p1 + p2
 
-#ggsave(filename = "SVC_mean_diff.pdf",dpi = 300,width = 4000,units = "px")
+ggsave(filename = "SVC_mean_diff.pdf",dpi = 300,width = 4000,units = "px")
 
 ```
 
