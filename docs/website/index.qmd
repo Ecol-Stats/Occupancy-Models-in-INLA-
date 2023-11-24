@@ -17,7 +17,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-This section describes the steps to fit occupancy models in [R-INLA](https://www.r-inla.org/) using simulated data (simulation details can be found in the [Data Simulation](https://jbelmont89.github.io/Occupancy-Models-in-INLA/projects.html) tab).
+This section describes the steps to fit occupancy models in [R-INLA](https://www.r-inla.org/) using simulated data (simulation details can be found in the [Data Simulation](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html) tab).
 
 # Simple Spatial Occupancy Model
 
@@ -181,19 +181,6 @@ A_sp <- inla.spde.make.A(mesh = mesh,
 iset_sp <- inla.spde.make.index(name = "spatial_field", matern$n.spde)
 
 # build the stack
-# stk <- inla.stack(data=list(Ycounts = SSOM$y, # observed occurrences
-#                             Ncounts = SSOM$nvisits, # number of visits
-#                             det_cov = SSOM$g_s, # detection covariate
-#                             Int_det = rep(1,length(SSOM$y))), # Det Intercept
-#                   A=list(A_sp,1),  # project matrices
-#                   effects=list(c(list(Int_occ=1), # Occ Intercept
-#                                  iset_sp),  #the spatial index
-#                                # the covariates
-#                                list(occ_cov = SSOM$x_s)),
-#                   #this is a quick name so yo can call upon easily
-#                   tag='ssom')
-
-# build the stack
 stk <- inla.stack(data=list(Ycounts = SSOM$y, # observed occurrences
                             Ncounts = SSOM$nvisits, # number of visits
                             det_cov = SSOM$g_s, # detection covariate
@@ -264,7 +251,7 @@ $$
 
 Thus, we can transform the posterior marginal for the occupancy state process parameters using the `inla.tmarginal()` function. E.g., the marginal distribution of $\beta_0$ can be obtained using:
 
-```
+```         
 inla.tmarginal(function(x) -x, model_ssom$marginals.fixed$Int_occ)
 ```
 
@@ -563,6 +550,8 @@ pred_df$group_xs = xx[-c(1:dim(space_time_data)[1])]
 
 ```
 
+## Fitting a space-time Occupancy model in `INLA`
+
 To fit a separable space time model, the SPDE and the index set need to be defined (see @krainski2018 Section [7.1.2](https://becarioprecario.bitbucket.io/spde-gitbook/ch-spacetime.html#data-stack-preparation) for further reference on building the stack for a separable space time model in INLA). Note that for building the projection matrix **A**, the coordinates and the time index need to be supplied:
 
 ```{r}
@@ -663,9 +652,9 @@ The posterior summaries (i.e. mean, quantiles, std.dev and mode) of the smooth t
 ```{r}
 #| echo: false
 #| message: false
-#| fig-width: 5
+#| fig-width: 10
 #| fig-align: center
-#| fig-height: 5
+#| fig-height: 4
 #| fig-cap: Estimated smooth effect of simulated covariate x.
 #| label: fig-smooth_eff
 
@@ -922,7 +911,7 @@ For the Spatial field $\omega(i)$, the projector matrix **A** mapping the model 
 
 ```{r}
 #| code-fold: false
-
+#| source-line-numbers: "6"
 A_sp1 <- inla.spde.make.A(mesh = mesh,
                          loc = st_coordinates(svc_data))
 #space-time projector matrix
@@ -935,7 +924,7 @@ For building the stack both projector matrices and indexes must be specified.
 
 ```{r}
 #| code-fold: false
-#| source-line-numbers: "5:7"
+#| source-line-numbers: "5,6,7"
 
 
 stk <- inla.stack(data=list(Ycounts = svc_data$y,
@@ -1042,7 +1031,7 @@ dd = data.frame(x = st_coordinates(projection_grid)[,1],
 ```{r}
 #| echo: false
 #| fig-align: center
-#| fig-height: 7
+#| fig-height: 8
 #| fig-width: 10
 #| fig-cap: Estimated spatiotemporal trend for a SVC model
 #| label: fig-svc_trend
@@ -1055,7 +1044,7 @@ ggplot() + tidyterra::geom_spatraster(data=dd$check)  + coord_equal() +
   scale_fill_manual(name="Change in trend",values = c("-1" = "maroon",
                                "0" = "grey",
                                "1" = "cyan4"),
-                    labels = c("Negative", "No change", "Positive"), na.translate = F)+plot_layout(ncol=2)
+                    labels = c("Negative", "No change", "Positive"), na.translate = F)+plot_layout(ncol=1)
 
 ```
 
@@ -1098,8 +1087,8 @@ dd2 = data.frame(x = st_coordinates(projection_grid)[,1],
 #| warning: false
 #| echo: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 8
+#| fig-height: 8
+#| fig-width: 10
 #| fig-cap: SVC model estimated (left) and simulated (right) occupancy probabilitiesfor time point 5.
 #| label: fig-svcest_vs_true
 
@@ -1107,7 +1096,7 @@ spatio_svc <- terra::rast('raster data/spatio_svc_probs.tif')
 
 ggplot() + tidyterra::geom_spatraster(data=dd2)+ coord_equal()+
   scale_fill_scico(name= expression(hat(psi)[it]),palette = 'roma',direction = -1)+
-ggplot() + tidyterra::geom_spatraster(data=spatio_svc$`time 5`) + scale_fill_scico(name=expression(psi[it]),palette = 'roma',direction = -1)+plot_layout(ncol=2)
+ggplot() + tidyterra::geom_spatraster(data=spatio_svc$`time 5`) + scale_fill_scico(name=expression(psi[it]),palette = 'roma',direction = -1)+plot_layout(ncol=1)
 
 ```
 
@@ -1274,8 +1263,8 @@ projection_grid_R <- st_intersection(projection_grid,R_i)
 ```{r}
 #| echo: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
+#| fig-height: 4
+#| fig-width: 4
 #| fig-cap: Grid for predicting the space-varying trend estimated with the Regional SVC model across 20 non-overlapping regions.
 #| label: fig-pred_region
 ggplot()+
