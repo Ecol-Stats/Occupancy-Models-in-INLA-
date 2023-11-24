@@ -690,7 +690,7 @@ Model hyper parameters marginal densities can be accessed through `model_spat$ma
 ```{r}
 #| echo: false
 #| label: tbl-spat-tbl1
-#| tbl-cap: summary results for the space-time occupancy model detection and Matérn covariance matrix parameters.
+#| tbl-cap: summary results for the space-time occupancy model hyperparameters for the detection linear predictor and the Matérn variance-covariance matrix.
 
 
 bind_rows(model_spat$marginals.hyperpar$`beta1 for 0binomialS observations` |>
@@ -749,15 +749,19 @@ samples_spat = inla.posterior.sample(1000, model_spat)
 
 func_spat = function(...)
 {
-  aa = -(Int_occ + group_xs[as.numeric(as.factor(pred_df$group_xs))] +
+  eta = -(Int_occ + group_xs[as.numeric(as.factor(pred_df$group_xs))] +
            (A_spat %*% spatialfield)[,1]
   )
-  aa
+  eta
 }
 
 eval_samples = inla.posterior.sample.eval(func_spat, samples_spat)
 
 ```
+
+::: callout-note
+Recall the because of iINLA's likelihood parametrization of a ZIB-model we defined $\mathrm{logit}(\psi_{i,t}) =  -\eta_1 = -\left[\beta_0 + f_1(x_i) + \omega(i,t) \right]$
+:::
 
 Summaries of the posterior samples can then be appended to de prediction data frame for visualization (e.g., mean occupancy probabilities, linear predictor posterior mean, std. dev, difference in quantiles, etc.)
 
@@ -791,12 +795,19 @@ pred_df_results = pred_df %>%
   scale_fill_scico(name=expression(hat(psi)[it]),palette = 'roma',direction = -1)
 ```
 
-We can compare these results against the true simulated values previously stored in:
+We can compare these results against the true [simulated values](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html#sec-STOM) downloadable here:
 
 ```{r}
-#| code-fold: false
+#| echo: false
 
-true_psi<- terra::rast('raster data/spatsat_occ_probs.tif')
+download_link(
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/blob/main/docs/website/raster%20data/spatsat_occ_probs.tif/spatsat_occ_probs.tif",
+  button_label = "Download simulated example",
+  button_type = "info",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
 ```
 
 ```{r}
@@ -806,7 +817,7 @@ true_psi<- terra::rast('raster data/spatsat_occ_probs.tif')
 #| fig-height: 8
 #| fig-cap: True occupancy probabilities simulated from a spatiotemporal Gaussian field with Ar1 component.
 #| label: fig-true_probs_spat
-
+true_psi<- terra::rast('raster data/spatsat_occ_probs.tif')
 ggplot() + tidyterra::geom_spatraster(data=true_psi) +
    facet_wrap(~lyr, ncol = 3) +
   coord_equal() + scale_fill_scico(name=expression(psi[it]),palette = 'roma',direction = -1)
@@ -1082,6 +1093,19 @@ dd2 = data.frame(x = st_coordinates(projection_grid)[,1],
 
 ```
 
+Now we can compare this result against the [true simulated values](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html#sec-SVCOM) available to be downloaded:
+
+```{r}
+download_link(
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/blob/main/docs/website/raster%20data/spatio_svc_probs.tif/spatio_svc_probs.tif",
+  button_label = "Download simulated example",
+  button_type = "info",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
 ```{r}
 #| message: false
 #| warning: false
@@ -1182,7 +1206,7 @@ A_sp <- inla.spde.make.A(mesh = mesh,
                          loc = st_coordinates(svc_data_R))
 ```
 
-We also need to supply the region id index from the data as a numerical input in the stack effects list.
+We also need to supply the region index from the data as a numerical input in the stack effects list.
 
 ```{r}
 #| code-fold: false
