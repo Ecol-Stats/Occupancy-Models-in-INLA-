@@ -417,7 +417,7 @@ ggplot()+geom_sf(data=SSOM,color="grey60")+
 
 ```
 
-The LGOCV is used to evaluate the predictive performance of each model and the log-scores are computed as shown in @tbl-ssom-tbl12).
+The LGOCV is used to evaluate the predictive performance of each model and the log-scores are computed as shown in @tbl-ssom-tbl12.
 
 ```{r}
 lgocv_ssom = inla.group.cv(result = model_ssom, groups= Ii)
@@ -760,7 +760,7 @@ eval_samples = inla.posterior.sample.eval(func_spat, samples_spat)
 ```
 
 ::: callout-note
-Recall the because of iINLA's likelihood parametrization of a ZIB-model we defined $\mathrm{logit}(\psi_{i,t}) =  -\eta_1 = -\left[\beta_0 + f_1(x_i) + \omega(i,t) \right]$
+Recall the because of `INLA`'s likelihood parametrization of a ZIB-model, we defined $\mathrm{logit}(\psi_{i,t}) = -\eta_1 = -\left[\beta_0 + f_1(x_i) + \omega(i,t) \right]$
 :::
 
 Summaries of the posterior samples can then be appended to de prediction data frame for visualization (e.g., mean occupancy probabilities, linear predictor posterior mean, std. dev, difference in quantiles, etc.)
