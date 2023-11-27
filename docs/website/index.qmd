@@ -801,7 +801,7 @@ We can compare these results against the true [simulated values](https://ecol-st
 #| echo: false
 
 download_link(
-  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/blob/main/docs/website/raster%20data/spatsat_occ_probs.tif/spatsat_occ_probs.tif",
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/raw/main/docs/website/raster%20data/spatsat_occ_probs.tif",
   button_label = "Download simulated example",
   button_type = "info",
   has_icon = TRUE,
@@ -1097,7 +1097,7 @@ Now we can compare this result against the [true simulated values](https://ecol-
 
 ```{r}
 download_link(
-  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/blob/main/docs/website/raster%20data/spatio_svc_probs.tif/spatio_svc_probs.tif",
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/raw/main/docs/website/raster%20data/spatio_svc_probs.tif",
   button_label = "Download simulated example",
   button_type = "info",
   has_icon = TRUE,
