@@ -953,7 +953,7 @@ stk <- inla.stack(data=list(Ycounts = svc_data$y,
 
 ```
 
-The model formula include both spatial spde models, which is then passed on to the `inla` function.
+The model formula include both spde models, which is then passed on to the `inla` function.
 
 ```{r}
 #| code-fold: show
@@ -988,7 +988,7 @@ model_svc <- inla(formula_svc, #the formula
 
 ## Visualize space-varying trend
 
-To plot the predicted spatial trend a fine grid covering the spatial domain must be created. We can use `sf::st_make_grid()` function to do this.
+To plot the predicted spatial trend, a fine grid covering the spatial domain must be created. We can use `sf::st_make_grid()` function to do this.
 
 ```{r}
 projection_grid <- st_make_grid(boundary_sf,cellsize = c(3,3)) %>%
