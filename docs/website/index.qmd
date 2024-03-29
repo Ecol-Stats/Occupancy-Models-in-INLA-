@@ -1,0 +1,1361 @@
+---
+title: "Fitting Occupancy models with R-INLA"
+number-sections: true
+execute: 
+  eval: true
+format: 
+  html: 
+    code-link: true
+    code-fold: true
+    code-tools: 
+      source: false
+      toggle: true
+filters:
+  - line-highlight
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+This section describes the steps to fit occupancy models in [R-INLA](https://www.r-inla.org/) using simulated data (simulation details can be found in the [Data Simulation](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html) tab).
+
+# Simple Spatial Occupancy Model
+
+The following simple spatial occupancy model is fitted to the simulated data:
+
+```{=tex}
+\begin{align}
+z_{i} &\sim \mathrm{Bernoulli}(\psi_{i})~~~\mbox{for } i=1,\ldots,M_{sites} \nonumber \\
+ \mathrm{logit}(\psi_{i}) &= \beta_1 + \beta_1 x_i + \omega_i \nonumber \\
+y_{i}|z_{i} &\sim \mathrm{Binomial}(K_i,z_{i} \times p_i)\nonumber\\
+\mathrm{logit}(p_{i}) &= \alpha_0 + \alpha_1 g_{i}.
+\label{eq:SSOM}
+\end{align}
+```
+Here, $z$ denotes the occupancy state with occupancy probabilities $\psi$ defined on the logit scale as a linear function of the simulated covariate $x$ with unknown parameters $\beta_0$ (Intercept), $\beta_1$ (slope) and $\omega$ (a spatial Gaussian random field describing the spatial structure in the data).
+
+The response $y$ is the number of times a species was detected given $z$ and the detection probabilities $p$ are defined on the logit scale as a linear function of simulated covariate $g$ with unknown parameters $\alpha_0$ (Intercept), $\alpha_1$ (slope).
+
+## Set up {#sec-setup1}
+
+We first load the data and prepare it in the format that is required by R-INLA.
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+
+# libraries for plots
+library(ggplot2)
+library(scico)
+library(viridis)
+library(patchwork)
+```
+
+```{r}
+#| warning: false
+#| message: false
+library(INLA)
+library(inlabru)
+library(fmesher)
+library(tidyverse)
+library(sf)
+library(terra)
+library(dplyr)
+
+
+SSOM <- read.csv("Occ_data_1.csv")
+x_covariate <- terra::rast('raster data/x_covariat.tif')
+g_covariate <- terra::rast('raster data/g_covariat.tif')
+
+# Extract the covariate values
+
+# Convert to sf 
+SSOM <- SSOM %>%
+  st_as_sf(coords = c('x.loc','y.loc')) 
+
+# evaluate covariates at each cell 
+
+SSOM = SSOM %>% dplyr::select(-cellid) %>% 
+        mutate(terra::extract(x_covariate,st_coordinates(SSOM)),
+               terra::extract(g_covariate,st_coordinates(SSOM)))
+
+
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| label: tbl-t1
+#| tbl-cap: First 6 entries of the occupancy data
+
+SSOM |>
+  head(n=6) |>
+ knitr:: kable()
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| layout-ncol: 3
+#| column: page
+
+library(downloadthis)
+
+SSOM_download = SSOM %>% 
+  mutate(x.loc= st_coordinates(SSOM)[,1],
+         y.loc= st_coordinates(SSOM)[,2]) %>% st_drop_geometry()
+
+SSOM_download %>% 
+  download_this(
+    output_name = "SSOM_dataset",
+    output_extension = ".xlsx",
+    button_label = "Download data as xlsx",
+    button_type = "warning",
+    has_icon = TRUE,
+    icon = "fa fa-save"
+  )
+
+download_link(
+  link = "https://github.com/JBelmont89/Occupancy-Models-in-INLA/raw/main/raster%20data/g_covariat.tif",
+  button_label = "Download g raster file",
+  button_type = "primary",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+download_link(
+  link = "https://github.com/JBelmont89/Occupancy-Models-in-INLA/raw/main/raster%20data/x_covariat.tif",
+  button_label = "Download x raster file",
+  button_type = "primary",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
+### Constructing the mesh and defining the SPDE
+
+The linear predictor can include a variety of random effects such as smooth terms or spatiotemporal components by incorporating Gaussian random fields (GRFs) into models. This is achieved by using the stochastic partial differential equation (SPDE) method introduced by @lindgren2011. The SPDE approach relies discretizing the space by defining a mesh that creates an artificial set of neighbours over the study area that allows for the spatial autocorrelation between observation to be calculated. How the mesh is constructed will have an important impact on the inference and predictions we make. Thus, it is important to create a good mesh to ensure results are not sensible to the mesh itself (guidance for creating a mesh can be found in @krainski2018 section [2.6.3](https://becarioprecario.bitbucket.io/spde-gitbook/ch-intro.html#sec:meshestoy)). The `inla.spde2.pcmatern()` function is used to define the SPDE model. Using the penalized complexity (PC) priors derived in @fuglstad2018 on the range and marginal standard deviation.
+
+```{r}
+boundary_sf = st_bbox(c(xmin = 0, xmax = 300, ymax = 0, ymin = 300)) |>
+  st_as_sfc()
+
+mesh = fm_mesh_2d(loc.domain = st_coordinates(boundary_sf)[,1:2],
+                    offset = c(-0.1, -.2),
+                    max.edge = c(15, 30))
+matern <- inla.spde2.pcmatern(mesh,
+                              prior.range = c(100, 0.5),
+                              prior.sigma = c(1, 0.5))
+
+```
+
+```{r}
+#| echo: false
+#| fig-width: 4
+#| fig-height: 4
+#| fig-align: center
+ggplot()+gg(mesh)
+```
+
+To define a spatial model we create the projector **A** matrix that maps the spatial Gaussian random field to the locations of the observed data and organize it along with the data, indeces and covariates through the `inla.stack()` function (see @krainski2018 sections [2.3.2](#0){style="font-size: 11pt;"} and [2.3.3](#0){style="font-size: 11pt;"} for more details).
+
+When building the *stack* we need to supply three main arguments:
+
+1.  List containing the data, the detection site-level covariate(s), the number of visits per site, and vector of 1's of length $M_{sites}$ for the detection intercept.
+2.  List of projector matrices (in this case the projector matrix **A** for the spatial field and a matrix that maps the covariate and the response)
+3.  List of effects including (i) the occupancy intercept, (ii) the index set for the spatial field (that takes into account the number of mesh points in the SPDE ) and (iii) a list of the site-level covariate(s) for the state process of interest.
+
+```{r}
+#| code-fold: false
+
+
+# projector matrix A
+A_sp <- inla.spde.make.A(mesh = mesh,
+                      loc = st_coordinates(SSOM))
+# index set
+iset_sp <- inla.spde.make.index(name = "spatial_field", matern$n.spde)
+
+# build the stack
+stk <- inla.stack(data=list(Ycounts = SSOM$y, # observed occurrences
+                            Ncounts = SSOM$nvisits, # number of visits
+                            det_cov = SSOM$g_s, # detection covariate
+                            Int_det = rep(1,length(SSOM$y))), # Det Intercept
+                  A=list(A_sp,1),  # project matrices
+                  effects=list(iset_sp, #the spatial index
+                               data.frame(Int_occ=1,  # Occ Intercept
+                                          occ_cov = SSOM$x_s)), # covariate x
+                  #this is a quick name so yo can call upon easily
+                  tag='ssom')
+
+```
+
+Now we define the model components (left hand side -observational model components; right hand side - state process components) and fit the model:
+
+```{r}
+#| warning: false
+#| message: false
+#| code-fold: false
+
+formula_ssom <- inla.mdata(cbind(Ycounts,Ncounts),Int_det,det_cov) ~  -1 +
+  Int_occ +  occ_cov +  f(spatial_field, model=matern)
+
+model_ssom <- inla(formula_ssom, # model formula
+                 data=inla.stack.data(stk), # data stack
+                 family= '0binomialS', # model likelihood
+                 # priors
+                 control.fixed =  list(prec = 1/2.72, prec.intercept = 1/2.72),
+                 # matrix of predictors
+                 control.predictor=list(A=inla.stack.A(stk),compute=TRUE),
+                 # compute WAIC and DIC
+                 control.compute = list(dic = TRUE, waic = TRUE, config = TRUE),
+                 verbose = FALSE,
+                 # choose link functions for:
+                 # (i) the state process (control.link)
+                 # (ii) the observation process (link.simple)
+                 control.family = list(control.link = list(model = "logit"),
+                                       link.simple = "logit",
+                 # priors for hyperparameters
+                 hyper = list(
+                   beta1 = list(param = c(0,1), initial = -1),
+                   beta2 = list(param = c(0,1/2.72)))
+                 )
+                 )
+
+```
+
+::: callout-note
+We explicitly removed the intercepts in the formula and included them as covariates in the list of effects and data. Then, the covariate terms (which are now included in the projector matrix) are passed on to `inla()` through the `control.predictor` argument.
+:::
+
+## Results
+
+The summary of the fixed effect, namely $\beta_0$ and $\beta_1$ can be retrieved from `model_ssom$summary.fixed` while detection parameters $\alpha_0$ and $\alpha_1$ are contained, along with the range and standard deviation, in `model_ssom$summary.hyperpar.`
+
+::: callout-note
+Notice that INLA's parametrization of a ZIB model is
+
+$$ \pi(y|\eta_1,\eta_2) = p(\eta_1)\mathbb{I}_{y=0} + (1 - p(\eta_1))\pi(y|\eta_2) $$
+
+For the occupancy model, the occupancy probabilities can be defined as $\psi = 1-p(\eta_1)$ and $\pi(y|\eta_2)$ is a Binomial likelihood.
+
+If we use the the logit link function, we can get the linear predictor in the appropriate scale by defining
+
+$$
+\psi = 1 -\dfrac{\mathrm{exp}(\eta_1)}{1+\mathrm{exp}(\eta_1)}= \dfrac{1}{1+\mathrm{exp}(\eta_1)} = \dfrac{\mathrm{exp}(-\eta_1)}{1+ \mathrm{exp}(-\eta_1)}
+$$
+
+Thus, we can transform the posterior marginal for the occupancy state process parameters using the `inla.tmarginal()` function. E.g., the marginal distribution of $\beta_0$ can be obtained using:
+
+```         
+inla.tmarginal(function(x) -x, model_ssom$marginals.fixed$Int_occ)
+```
+
+Summaries can then be computed using the `inla.zmarginal()` function.
+:::
+
+Summary results from the fitted SSOM are shown in @tbl-ssom-tbl1 and posterior densities on @fig-posterior-dens-ssom.
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: tbl-ssom-tbl1
+#| tbl-cap: summary results for the occupancy model parameters and their corresponding true values.
+library(gt)
+# True coef values
+
+beta <- c(NA,NA)
+beta[1] <-  qlogis(0.3) # Base line occupancy probability
+beta[2] <- 1.5  # environmental covariate effect
+alpha <- c(NA,NA)
+alpha[1] <- qlogis(0.6) # Base line detection probability
+alpha[2] <- 1 # detection covariate effect
+
+range_spde = 100
+sigma_spde = 1
+
+  bind_rows(inla.tmarginal(function(x) -x, model_ssom$marginals.fixed$Int_occ) |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = beta[1],.before ="mean") |>
+    add_column(par = "$\\beta_0$",.before ="true"),
+
+  inla.tmarginal(function(x) -x, model_ssom$marginals.fixed$occ_cov) |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = beta[2],.before ="mean") |>
+    add_column(par = "$\\beta_1$",.before ="true"),
+
+  model_ssom$marginals.hyperpar$`beta1 for 0binomialS observations` |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = alpha[1],.before ="mean") |>
+    add_column(par = "$\\alpha_0$",.before ="true"),
+
+  model_ssom$marginals.hyperpar$`beta2 for 0binomialS observations` |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = alpha[2],.before ="mean") |>
+    add_column(par = "$\\alpha_1$",.before ="true"),
+
+  model_ssom$marginals.hyperpar$`Range for spatial_field`|>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = range_spde,.before ="mean") |>
+    add_column(par = "$\\rho$",.before ="true"),
+
+  model_ssom$marginals.hyperpar$`Stdev for spatial_field`|>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = sigma_spde,.before ="mean") |>
+    add_column(par = "$\\sigma$",.before ="true")
+
+  ) |>
+     knitr::kable(escape = FALSE,digits = 2)
+
+
+```
+
+```{r}
+#| echo: false
+#| label: fig-posterior-dens-ssom
+#| fig-width: 10
+#| fig-height: 4
+#| fig-align: center
+#| fig-cap: Posterior densities of the fixed effect parameters of a simple spatial occupancy model fitted with R-INLA.The vertical solid line represent the true value of the parameter.
+
+results = data.frame(inla.tmarginal(
+  function(x) -x, model_ssom$marginals.fixed$Int_occ),
+                     par = "beta[0]", true.value = qlogis(0.3))
+
+results = rbind(results,
+                data.frame(
+                inla.tmarginal(function(x) -x ,
+                               model_ssom$marginals.fixed$occ_cov),
+                  par = "beta[1]",
+                  true.value = 1.5
+                ))
+
+  ggplot(data = results, aes(x,y,colour = par)) +
+  geom_line() +
+  geom_vline(aes(xintercept = true.value), linewidth = 0.6) +
+    facet_wrap(~par,labeller = label_parsed,scales = 'free_x')+
+  theme(legend.position = 0)
+```
+
+## Model comparison through cross-validation
+
+Next we introduce how to implement modelling comparison using leave-out group cross validation (LGOCV). The underlying idea is that of a Bayesian prediction setting where we approximate the posterior predictive density $\pi(\mathbf{\tilde{Y}}|\mathbf{y})$ defined as the integral over the posterior distribution of the parameters, i.e.
+
+$$
+\pi(\mathbf{\tilde{Y}}|\mathbf{y}) = \int_\theta \pi(\mathbf{\tilde{Y}}|\theta,\mathbf{y}) \pi(\theta|\mathbf{y})d\theta
+$$
+
+the LGOCV selects a fixed test point $i$ and remove a certain group of data $\mathbb{I}_i$ according to a specific prediction task. Thus, we are interested in the posterior predictive density
+
+$$
+\pi(Y_i|\mathbf{y}_{-\mathcal{I}_i}) = \int_\theta \pi(Y_i|\theta,\mathbf{y}_{-\mathbb{I}_i}) \pi(\theta|\mathbf{y})d\theta
+$$
+
+With this, a point estimate $\tilde{Y_i}$ can be computed based on $\pi(Y_i|\mathbf{y}_{-\mathbb{I}_i})$ and the predictive performance be assessed using an appropriate scoring function $U(\tilde{Y}_i,Y_i)$, for example, the log-score function
+
+$$
+\frac{1}{n}\sum_{i=1}^n \mathrm{log}~ \pi(\mathbf{\tilde{y}}|\mathbf{y}).
+$$
+
+In this example, the LGOCV strategy will be used to compare the previous fitted spatially explicit occupancy model against a simple model that only considers a site *iid* random effect (note that since no structured spatial effect is being included, the data can be passed on to `inla()` without the need for a stack).
+
+```{r}
+#| code-fold: false
+
+
+SSOM_simple = SSOM %>%
+  mutate(site= 1:nrow(SSOM),Int_det = 1) %>%
+  st_drop_geometry()
+
+formula_simple = inla.mdata(cbind(y,nvisits),Int_det,g_s) ~
+   f(site, model =  "iid")
+
+model_simple <- inla(formula_simple, data=SSOM_simple,
+                     family= '0binomialS',verbose = FALSE,
+               control.compute = list( config = TRUE,dic  = T, waic = T),
+               control.fixed = list(prec.intercept = 1/2.72,prec = 1/2.72),
+               control.family = list(control.link = list(model = "logit"),
+                                     link.simple = "logit",
+                                     hyper = list(beta1 = list(param = c(0,1),
+                                                           initial = 0),
+                                                  beta2 = list(param = c(0,1)))))
+```
+
+In this example the leave-out group $\mathbb{I}_i$ is manually defined for the $i$th row of the data based on a buffer of size $b=25$ centered at each data point:
+
+```{r}
+# create buffer of size 25 centred at each site
+buffer <- st_buffer(SSOM, dist = 25)
+# Lists of the indexes of the leave-out-group for each observation i
+Ii <- st_intersects(SSOM,buffer)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 5
+#| fig-height: 5
+#| fig-align: center
+#| fig-cap: Example of the CV strategy for the 500th testing point.
+#| label: fig-cv_ex
+
+ggplot()+geom_sf(data=SSOM,color="grey60")+
+  geom_sf(data=SSOM[Ii[[500]],],aes(color="Leave out Group"))+
+  geom_sf(data = SSOM[500,],aes(colour="Testing point")) +
+  geom_sf(data=buffer[500,],aes(color="Buffer"),alpha=0)+
+  scale_color_manual(name="", values=c("red","orange","purple"))
+
+```
+
+The LGOCV is used to evaluate the predictive performance of each model and the log-scores are computed as shown in @tbl-ssom-tbl12.
+
+```{r}
+lgocv_ssom = inla.group.cv(result = model_ssom, groups= Ii)
+lgocv_simple = inla.group.cv(result = model_simple, group.cv = lgocv_ssom)
+
+log_score_ssom <- mean(log(lgocv_ssom$cv),na.rm=T)
+log_score_simple <-mean(log(lgocv_simple$cv),na.rm=T)
+
+```
+
+```{r}
+#| echo: false
+#| label: tbl-ssom-tbl12
+#| tbl-cap: Leave group out CV log scores of a spatially explicit occupancy model and a simple occupancy model with a site iid random effect.
+data.frame(logssom = log_score_ssom, logsom = log_score_simple ) %>%
+  gt() %>% tab_header(title= md("Log-Score LGOCV")) %>%  cols_label(
+    logssom = html("Continuous spatial<br> Gaussian field"),
+    logsom = html(" Site <em>iid</em> <br>random effect")) %>%
+      cols_align(align = "center") %>%
+      fmt_number(decimals=2)
+```
+
+# Spacetime Occupancy Models
+
+Next, we illustrate how the following spatiotemporal occupancy model can be fitted using INLA:
+
+```{=tex}
+\begin{align}
+z_{it} &\sim \mathrm{Bernoulli}(\psi_{it}) \nonumber \\
+ \mathrm{logit}(\psi_{it}) &= \beta_0 + f_1(\mbox{x}_i) +  \omega(i,t) \nonumber \\
+y_{it}|z_{it} &\sim \mathrm{Binomial}(K_i,z_{it} \times p_i)\nonumber\\
+\mathrm{logit}(p_{i}) &= \alpha_0 + \alpha_1 \mbox{g}_{i}.
+\label{eq:occ_model2}
+\end{align}
+```
+The structure of this model is similar to the simple spatial occupancy model, with the only difference that occupancy probabilities vary on space and time according to $f_1(x_i)$ a smooth effect of the covariate $x$ and $\omega(i,t)$, a space-time Gaussian spatial field with AR1 time component.
+
+## Set up
+
+First, we need the data to have the correct structure with columns representing the observed occurrences, number of visits, the cell/site id, the site-level covariates, and the time points. An additional filtering is made to remove the locations that were not visited in a given time point.
+
+```{r}
+space_time_data <- read.csv("Occ_data_2.csv")
+x_covariate <- terra::rast('raster data/x_covariat.tif')
+
+# Convert to sf
+space_time_data <- space_time_data %>%
+  st_as_sf(coords = c('x.loc','y.loc')) %>%
+   rename_with(~ str_remove(., "\\."), everything())
+
+# evaluate covariates at each cell and convert to long format
+
+space_time_data <- space_time_data %>%
+  dplyr::select(-cellid) %>%
+        mutate(site = 1:nrow(space_time_data),
+               terra::extract(x_covariate,st_coordinates(space_time_data)),
+               terra::extract(g_covariate,st_coordinates(space_time_data)))%>%
+        pivot_longer(cols = starts_with(c("n","y")),
+                     cols_vary = "slowest",
+                     names_to = c(".value", "time"),
+                     names_pattern = "(.*)(.)") %>%
+        mutate(nvisits = if_else(is.na(nvisits),0,nvisits),
+               time = as.numeric(time)) %>%
+  dplyr::filter(nvisits > 0) # remove locations that were not visited
+
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| tbl-cap: First 6 entries of the occupancy spatiotemporal data
+
+space_time_data |>
+  head(n=6) |>
+ knitr:: kable()
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+space_time_data_download  = space_time_data %>%
+  mutate(x.loc= st_coordinates(space_time_data)[,1],
+         y.loc= st_coordinates(space_time_data)[,2]) %>% st_drop_geometry()
+
+space_time_data_download %>%
+  download_this(
+    output_name = "SpatioTemporal_dataset",
+    output_extension = ".xlsx",
+    button_label = "Download data as xlsx",
+    button_type = "warning",
+    has_icon = TRUE,
+    icon = "fa fa-save"
+  )
+```
+
+For the estimation of the smooth effect, we can reduce the number of knots used in the estimation process by grouping the covariate $x$ values into equal length intervals with the `inla.group()` function and appending these grouped values to the data.
+
+::: callout-important
+At this point we will also create a *data frame for prediction*, containing the values of the binned covariates $x$ for every time time point in the data.
+:::
+
+```{r}
+#| code-fold: false
+nT <- length(space_time_data$time %>% unique) # number of time points
+ncells <- length(values(x_covariate$x_s)) # number of cells in the area
+
+# scale and centre the covariate value in the data input
+space_time_data <- space_time_data %>%
+  mutate(scale_x_s = scale(x_s)  %>% c())
+
+# prediction data frame
+pred_df = data.frame(x = rep(crds(x_covariate)[,1],nT),
+                     y = rep(crds(x_covariate)[,2],nT),
+                     x_s = rep(as.vector(scale(values(x_covariate$x_s))),nT),
+                     time = rep(c(1:nT), each= ncells))
+
+# binned covariate values.
+xx = inla.group(c(space_time_data$x_s, pred_df$x_s),
+                n = 35)
+
+# append grouped covariate values to the input and prediction data sets
+space_time_data$group_xs = xx[1:dim(space_time_data)[1]]
+pred_df$group_xs = xx[-c(1:dim(space_time_data)[1])]
+
+
+
+```
+
+## Fitting a space-time Occupancy model in `INLA`
+
+To fit a separable space time model, the SPDE and the index set need to be defined (see @krainski2018 Section [7.1.2](https://becarioprecario.bitbucket.io/spde-gitbook/ch-spacetime.html#data-stack-preparation) for further reference on building the stack for a separable space time model in INLA). Note that for building the projection matrix **A**, the coordinates and the time index need to be supplied:
+
+```{r}
+#| code-fold: false
+
+spde <- inla.spde2.pcmatern(mesh = mesh,
+                              prior.range = c(100, 0.5),
+                              prior.sigma = c(1, 0.5))
+
+t_points = unique(space_time_data$time) #unique time points
+
+iset_sp <- inla.spde.make.index(name = "spatialfield",
+                                n.spde =  spde$n.spde,
+                                n.group = length(t_points))
+
+# projection matrix using the coordinates of the data and time index
+A_sp <- inla.spde.make.A(mesh = mesh,
+                         loc = st_coordinates(space_time_data),
+                         group = space_time_data$time)
+
+
+```
+
+We can build the stack in a similar fashion to the one in @sec-setup1.
+
+```{r}
+#| code-fold: false
+stk <- inla.stack(data=list(Ycounts = space_time_data$y,
+                            Ncounts = space_time_data$nvisits,
+                            det_cov = space_time_data$g_s,
+                            Int_det = 1),
+                  A=list(A_sp,1),
+                  effects=list(c(list(Int_occ=1), #the Intercept
+                                 iset_sp),  #the spatial index
+                               #the covariates
+                               list(time = space_time_data$time,
+                                    location = space_time_data$site,
+                                    group_xs = space_time_data$group_xs)),
+                  tag='spat')
+```
+
+Next we specify the prior for the temporal autoregressive parameter and the model formula:
+
+```{r}
+#| code-fold: false
+
+# PC prior for the temporal autocorrelation
+h.spec <- list(rho = list(prior = 'pc.cor0', param = c(0.5, 0.3)))
+
+# extract unique values of the binned covariate
+val_xs = sort(unique(xx))
+
+formula_spat <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det, det_cov) ~ -1 +
+  Int_occ +
+  f(group_xs, model = "rw2", values = val_xs)  +
+  f(spatialfield,
+    model=spde,
+    group = spatialfield.group,
+    control.group = list(model = 'ar1',hyper = h.spec))
+
+
+```
+
+::: callout-note
+Notice that we have used the `values` argument when defining the `rw2` effect to specify the values of the binned covariate at which we will like to do predictions (i.e., over the whole domain). Otherwise, the model would only look at the values of the binned covariate available in the data input.
+:::
+
+Next we run the model:
+
+```{r}
+#| code-fold: show
+
+
+model_spat <- inla(formula_spat, #the formula
+                   data=inla.stack.data(stk),  #the data stack
+                   family= '0binomialS',   #which family the data comes from
+                   control.fixed =  list(prec = 1, prec.intercept = 1),
+                                     control.predictor=list(A=inla.stack.A(stk),
+                                                            compute=TRUE),
+                   #compute = TRUE gives you the marginals of the linear predictor
+                   control.compute = list(dic = TRUE, waic = TRUE,config = TRUE),
+                   #model diagnostics and config = TRUE gives you the GMRF
+                   verbose = F,
+                   control.family = list(control.link = list(model = "logit"),
+                                         link.simple = "logit",
+                                    hyper = list(beta1 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta2 = list(param = c(0,1/3)),
+                                                 beta3 = list(param = c(0,1/3)),
+                                                 beta4 = list(param = c(0,1/3)),
+                                                 beta5 = list(param = c(0,1/3)))))
+
+```
+
+The posterior summaries (i.e. mean, quantiles, std.dev and mode) of the smooth term $f(x)$ estimated using a RW2 are stored in `model_spat$summary.random$group_xs`. The estimated smooth term can then be plotted against the true function.
+
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 10
+#| fig-align: center
+#| fig-height: 4
+#| fig-cap: Estimated smooth effect of simulated covariate x.
+#| label: fig-smooth_eff
+
+# State process model coeficcients
+# State process model coeficcients
+beta <- c(NA,NA)
+beta[1] <- -0.5 # Base line occupancy probability
+beta[2] <- -1 # environmental covariate effect
+
+
+# Observational process model coeficcients
+alpha <- c(NA,NA)
+alpha[1] <- qlogis(0.3) # Base line detection probability
+alpha[2] <- -1.5 # detection covariate effect
+
+# ar1 corr
+rho <- 0.65
+x_s <- values(x_covariate)
+data.frame(model_spat$summary.random$group_xs) %>%
+    mutate(eta.true = beta[1] + beta[2]*((ID**2- mean(x_s)/sd(x_s))))%>%
+  ggplot() +
+    geom_ribbon(aes(ID,ymin= -X0.025quant-model_spat$summary.fixed[1,3],
+                    ymax = -X0.975quant-model_spat$summary.fixed[1,5]),fill="coral", alpha = 0.23)+
+  geom_line(aes(ID, -mean-model_spat$summary.fixed[1,1],color="Posterior mean"),linewidth=1) +
+    geom_line(aes(ID, eta.true,color="True"),linewidth=1,linetype=2)+
+  scale_color_manual(name="", values=c("coral","red"))+
+  labs(y="f(x)",x="Binned x")
+
+```
+
+Model hyper parameters marginal densities can be accessed through `model_spat$marginals.hyperpar`, posterior summaries of such are shown in @tbl-spat-tbl1
+
+```{r}
+#| echo: false
+#| label: tbl-spat-tbl1
+#| tbl-cap: summary results for the space-time occupancy model hyperparameters for the detection linear predictor and the Matérn variance-covariance matrix.
+
+
+bind_rows(model_spat$marginals.hyperpar$`beta1 for 0binomialS observations` |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = alpha[1],.before ="mean") |>
+    add_column(par = "$\\alpha_0$",.before ="true"),
+
+  model_spat$marginals.hyperpar$`beta2 for 0binomialS observations` |>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = alpha[2],.before ="mean") |>
+    add_column(par = "$\\alpha_1$",.before ="true"),
+
+  model_spat$marginals.hyperpar$`Range for spatialfield`|>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = range_spde,.before ="mean") |>
+    add_column(par = "practical range",.before ="true"),
+
+  model_spat$marginals.hyperpar$`Stdev for spatialfield`|>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = sigma_spde,.before ="mean") |>
+    add_column(par = "$\\sigma$",.before ="true"),
+
+    model_spat$marginals.hyperpar$`GroupRho for spatialfield`|>
+  inla.zmarginal(silent = T) |>  as_tibble() |>
+    dplyr::select(mean,quant0.025,quant0.975) |>
+    add_column(true = rho,.before ="mean") |>
+    add_column(par = "$\\rho$",.before ="true")
+
+  ) |>
+     knitr::kable(escape = FALSE,digits = 2)
+```
+
+## Spatial predictions
+
+In order to do predictions over space and time, we will need the *prediction data* set we created before, which contains the components used to fit the model. First, the projection matrix **A** is computed (this will be used for evaluating the model posterior samples of the Gaussian field in the next step).
+
+```{r}
+#| code-fold: false
+
+
+A_spat = inla.spde.make.A(mesh= mesh, loc = cbind(pred_df$x, pred_df$y),
+                        group = pred_df$time)
+
+```
+
+Then, posterior samples of the model will be drawn using the `inla.posterior.sample()` function. A function of the generated samples can be computed using the `inla.posterior.sample.eval()` function. To do so, we defined a function `func_spat()` to evaluate the linear predictor components on the posterior samples of the model.
+
+```{r}
+#| code-fold: false
+
+samples_spat = inla.posterior.sample(1000, model_spat)
+
+func_spat = function(...)
+{
+  eta = -(Int_occ + group_xs[as.numeric(as.factor(pred_df$group_xs))] +
+           (A_spat %*% spatialfield)[,1]
+  )
+  eta
+}
+
+eval_samples = inla.posterior.sample.eval(func_spat, samples_spat)
+
+```
+
+::: callout-note
+Recall the because of `INLA`'s likelihood parametrization of a ZIB-model, we defined $\mathrm{logit}(\psi_{i,t}) = -\eta_1 = -\left[\beta_0 + f_1(x_i) + \omega(i,t) \right]$
+:::
+
+Summaries of the posterior samples can then be appended to de prediction data frame for visualization (e.g., mean occupancy probabilities, linear predictor posterior mean, std. dev, difference in quantiles, etc.)
+
+```{r}
+
+occ_probs = inla.link.logit(eval_samples, inverse = T)
+
+pred_df_results = pred_df %>%
+  mutate(eta_sd = apply(eval_samples,1,sd),
+         eta_mu = apply(eval_samples,1,mean),
+         psi_mu = apply(occ_probs,1,mean),
+         quant_range = apply(eval_samples,1,
+                             function(x){quantile(x,0.975)-quantile(x,0.025)})) %>%
+  mutate(time = paste('time',time,sep=' '))
+
+
+```
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-align: center
+#| fig-height: 8
+#| fig-cap: Estimated mean occupancy probabilities from the space time occupancy model.
+#| label: fig-spat_pred
+
+  pred_df_results %>%
+  ggplot() + geom_tile(aes(x,y,fill = psi_mu)) +
+  coord_equal() +
+  facet_wrap(~time) +
+  scale_fill_scico(name=expression(hat(psi)[it]),palette = 'roma',direction = -1)
+```
+
+We can compare these results against the true [simulated values](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html#sec-STOM) downloadable here:
+
+```{r}
+#| echo: false
+
+download_link(
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/raw/main/docs/website/raster%20data/spatsat_occ_probs.tif",
+  button_label = "Download simulated example",
+  button_type = "info",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-align: center
+#| fig-height: 8
+#| fig-cap: True occupancy probabilities simulated from a spatiotemporal Gaussian field with Ar1 component.
+#| label: fig-true_probs_spat
+true_psi<- terra::rast('raster data/spatsat_occ_probs.tif')
+ggplot() + tidyterra::geom_spatraster(data=true_psi) +
+   facet_wrap(~lyr, ncol = 3) +
+  coord_equal() + scale_fill_scico(name=expression(psi[it]),palette = 'roma',direction = -1)
+
+```
+
+# Space varying coefficients (SVC) model
+
+## Continuous space-varying trend
+
+In this section we will fit the following SVC occupancy model:
+
+```{=tex}
+\begin{align}
+z_{it} &\sim \mathrm{Bernoulli}(\psi_{it}) \nonumber \\
+ \mathrm{logit}(\psi_{it}) &= \beta_0 + \beta_{1}(i) t + \omega(i)\nonumber \\
+y_{it}|z_{it} &\sim \mathrm{Binomial}(K_i,z_{it} \times p_i)\nonumber\\
+\mathrm{logit}(p_{i}) &= \alpha_0 + \alpha_1 \mbox{g}_{i},
+\label{eq:occ_model3}
+\end{align}
+```
+where the logit-scaled occupancy probabilities at locations $i$ on time $t$ are modeled with a continuous-space varying trend $\beta_{1}(i)$ , a fixed intercept $\beta_{0}$ (although a spatially varying intercept $\beta_{0}(i)$ could be easily fitted as well), and $\omega(i)$, a Gaussian random field with Matérn covariance function. The detection probabilities and observed occurrences are modeled in the same way as before. As before, the data is structured in a "long" format for its use in INLA.
+
+```{r}
+svc_data <- read.csv("Occ_data_3.csv")
+g_covariate <- terra::rast('raster data/g_covariat.tif')
+
+# Convert to sf
+svc_data <- svc_data %>%
+  st_as_sf(coords = c('x.loc','y.loc')) %>%
+   rename_with(~ str_remove(., "\\."), everything())
+
+
+svc_data <- svc_data %>%
+  dplyr::select(-cellid) %>%
+        mutate(site = 1:nrow(svc_data),
+               terra::extract(g_covariate,st_coordinates(svc_data)))%>%
+        pivot_longer(cols = starts_with(c("n","y")),
+                     cols_vary = "slowest",
+                     names_to = c(".value", "time"),
+                     names_pattern = "(.*)(.)") %>%
+        mutate(nvisits = if_else(is.na(nvisits),0,nvisits),
+               time = as.numeric(time),
+               scale_time = c(scale(time))) %>%
+  dplyr::filter(nvisits > 0) # remove locations that were not visited
+
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| tbl-cap: First 6 entries of the occupancy SVC data
+
+svc_data |>
+  head(n=6) |>
+ knitr:: kable()
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: true
+
+
+SVC_data_download  = svc_data %>%
+  mutate(x.loc= st_coordinates(svc_data)[,1],
+         y.loc= st_coordinates(svc_data)[,2]) %>% st_drop_geometry()
+
+SVC_data_download %>%
+  download_this(
+    output_name = "SVC_dataset",
+    output_extension = ".xlsx",
+    button_label = "Download data as xlsx",
+    button_type = "warning",
+    has_icon = TRUE,
+    icon = "fa fa-save"
+  )
+
+```
+
+First, the SPDE model is defined by using PC-priors for the model parameters. Note that two sets of indexes need to be created for (i) the spatial field and (ii) the spatio-temporal component.
+
+```{r}
+#| code-fold: false
+
+
+spde <- inla.spde2.pcmatern(mesh = mesh,
+                              prior.range = c(100, 0.5),
+                              prior.sigma = c(1, 0.5))
+
+iset_sp1 <- inla.spde.make.index(name = "i1",
+                                 n.spde =  spde$n.spde)
+iset_sp2 <- inla.spde.make.index(name = "i2",
+                                 n.spde =  spde$n.spde)
+
+
+```
+
+For the Spatial field $\omega(i)$, the projector matrix **A** mapping the model domain to the data locations is computed. As for the space-varying trend, this is represented as the Kronecker product of the projector matrix and the covariate vector, i.e., $(\mathbf{A}\otimes (\mathbf{x1})^T))\beta_1$ . Such computation is done internally within the `inla.spde.make.A()` function when the covariate vector gets passed on to the `weights` argument (in this case, the scaled-time covariate).
+
+```{r}
+#| code-fold: false
+#| source-line-numbers: "6"
+A_sp1 <- inla.spde.make.A(mesh = mesh,
+                         loc = st_coordinates(svc_data))
+#space-time projector matrix
+A_sp2 <- inla.spde.make.A(mesh = mesh,
+                          loc = st_coordinates(svc_data),
+                          weights = svc_data$scale_time)
+```
+
+For building the stack both projector matrices and indexes must be specified.
+
+```{r}
+#| code-fold: false
+#| source-line-numbers: "5,6,7"
+
+
+stk <- inla.stack(data=list(Ycounts = svc_data$y,
+                            Ncounts = svc_data$nvisits,
+                            det_cov= svc_data$g_s,
+                            Int_det = 1),
+                  A=list(A_sp1,A_sp2,1),
+                  effects=list(iset_sp1,
+                               iset_sp2,
+                               data.frame(Int_occ = 1,
+                                    scale_time = svc_data$scale_time,
+                                    time = svc_data$time)),
+                  tag='SVC')
+
+
+```
+
+The model formula include both spde models, which is then passed on to the `inla` function.
+
+```{r}
+#| code-fold: show
+#| source-line-numbers: "3,4"
+
+formula_svc = inla.mdata(cbind(Ycounts,Ncounts),Int_det,det_cov) ~
+  -1 + Int_occ +
+  f(i1, model=spde)  +
+  f(i2, model=spde)
+
+model_svc <- inla(formula_svc, #the formula
+              data=inla.stack.data(stk),
+              family= '0binomialS',
+              control.fixed =  list(prec = 1, prec.intercept = 1),
+              control.predictor=list(A=inla.stack.A(stk),
+                                     compute=TRUE),
+              control.compute = list(dic = TRUE, waic = TRUE,
+                                     config = TRUE),
+              # verbose = TRUE,
+              control.inla = list(int.strategy = "eb"),
+              control.family = list(control.link = list(model = "logit"),
+                                    link.simple = "logit",
+                                    hyper = list(beta1 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta2 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta3 = list(param  = c(0,1/3),
+                                                              initial= 0),
+                                                 beta4 = list(param  = c(0,1/3),
+                                                              initial= 1))))
+```
+
+## Visualize space-varying trend
+
+To plot the predicted spatial trend, a fine grid covering the spatial domain must be created. We can use `sf::st_make_grid()` function to do this.
+
+```{r}
+projection_grid <- st_make_grid(boundary_sf,cellsize = c(3,3)) %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_sf()
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: Prediction grid for the SVC model
+ggplot()+
+geom_sf(data=projection_grid)
+```
+
+Once the prediction grid is created, a projector matrix `A_pred` is computed based on the locations of the grid. Posterior samples of the model are drawn, and the projector matrix is used to evaluate the spatio-temporal trend on the samples.
+
+```{r}
+#| code-fold: false
+
+
+# projector matrix
+A_pred = inla.spde.make.A(mesh, st_coordinates(projection_grid))
+# samples
+samples = inla.posterior.sample(1000, model_svc)
+# evaluate the spatial temporal trend
+svc_eval = inla.posterior.sample.eval(function(x) -(A_pred %*% i2)[,1],
+                                 samples)
+
+
+```
+
+We can compute the posterior mean, median, quantiles, and also check for significance. This information can be appended into a prediction data frame and converting it to a `SpatRaster` for visualization.
+
+```{r}
+dd = data.frame(x = st_coordinates(projection_grid)[,1],
+                y = st_coordinates(projection_grid)[,2],
+                z = apply(svc_eval,1,mean),
+                q1 = apply(svc_eval,1,quantile,0.025),
+                q2 = apply(svc_eval,1,quantile,0.975)) %>%
+  mutate(check = case_when( q1>=0 & q2>=0 ~1,
+                             q1<0 & q2<0 ~ -1,
+                             q1<0 & q2>0 ~ 0)) %>%
+  terra::rast()
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 10
+#| fig-cap: Estimated spatiotemporal trend for a SVC model
+#| label: fig-svc_trend
+
+terra::values(dd$check) <- as.factor(terra::values(dd$check))
+
+ggplot() + tidyterra::geom_spatraster(data=dd$z)  + coord_equal() +
+  scale_fill_scico(name= "Mean \ntemporal trend")+
+ggplot() + tidyterra::geom_spatraster(data=dd$check)  + coord_equal() +
+  scale_fill_manual(name="Change in trend",values = c("-1" = "maroon",
+                               "0" = "grey",
+                               "1" = "cyan4"),
+                    labels = c("Negative", "No change", "Positive"), na.translate = F)+plot_layout(ncol=1)
+
+```
+
+We can also compute a the predicted occupancy probabilities at a fixed time point $t$ by evaluating the linear predictor on the posterior samples. We define a function `func_svc()` to compute the the liner predictor for a given time point.
+
+```{r}
+#| code-fold: false
+
+func_svc = function(..., time)
+{
+  fix = Int_occ
+  spat = (A_pred %*% i1)[,1]
+  spat2 = (A_pred %*% i2)[,1] * sort(unique(svc_data$scale_time))[time]
+  return(-(fix + spat + spat2))
+
+}
+
+```
+
+For example, for $t=5$ we can compute the posterior mean occupancy probability as follows:
+
+```{r}
+#| code-fold: show
+
+# select t= 5
+time=5
+
+# evaluate the linear predictor on the posterior samples
+eta_post = inla.posterior.sample.eval(func_svc, samples, time = 5)
+
+dd2 = data.frame(x = st_coordinates(projection_grid)[,1],
+                y = st_coordinates(projection_grid)[,2],
+                psi =apply(inla.link.logit(eta_post, inverse = T),1,mean)) %>%
+  terra::rast()
+
+```
+
+Now we can compare this result against the [true simulated values](https://ecol-stats.github.io/Occupancy-Models-in-INLA-/website/docs/projects.html#sec-SVCOM) available to be downloaded:
+
+```{r}
+download_link(
+  link = "https://github.com/Ecol-Stats/Occupancy-Models-in-INLA-/raw/main/docs/website/raster%20data/spatio_svc_probs.tif",
+  button_label = "Download simulated example",
+  button_type = "info",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 10
+#| fig-cap: SVC model estimated (left) and simulated (right) occupancy probabilitiesfor time point 5.
+#| label: fig-svcest_vs_true
+
+spatio_svc <- terra::rast('raster data/spatio_svc_probs.tif')
+
+ggplot() + tidyterra::geom_spatraster(data=dd2)+ coord_equal()+
+  scale_fill_scico(name= expression(hat(psi)[it]),palette = 'roma',direction = -1)+
+ggplot() + tidyterra::geom_spatraster(data=spatio_svc$`time 5`) + scale_fill_scico(name=expression(psi[it]),palette = 'roma',direction = -1)+plot_layout(ncol=1)
+
+```
+
+## Regional Varying Trend
+
+Now suppose we are interested in modelling the regional varying trend $\beta_{R_i}$ for a set of $p$ non-overlapping regions over the spatial domain, i.e. $\mathcal{D} = \bigcup\limits_{i=1}^p R_i$ such that $R_i\bigcap R_j = \emptyset$ for each $i\neq j$. We can discretized the study area into 20 regions as follows:
+
+```{r}
+#| warning: false
+#| message: false
+
+
+R_i <- st_make_grid(boundary_sf, cellsize = 90, square = FALSE) %>%
+    st_cast("MULTIPOLYGON") %>%
+  st_sf() %>%
+  mutate(cellid = row_number()) %>%
+  st_crop(boundary_sf) %>%
+  st_collection_extract( "POLYGON") %>%
+  mutate(cellid = 1:length(cellid))
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: Partition of the spatial domain into 20 non-overlapping Regions.
+#| label: fig-regions_svc
+
+
+ggplot()+geom_sf(data=R_i,aes(fill=factor(cellid)),alpha=0.5) +scale_fill_viridis_d(name = expression(R[i]),option = "turbo")+
+  theme(legend.position = "bottom")
+
+```
+
+The regional varying trend $\beta_{R_i}$ in the linear predictor can be vary across the $p$ discrete aerial units through $iid$ random effects, or according to a spatial dependence structure modeled with an areal spatial process. For the latter case, the spatial structure is usually described by neighborhood matrices. The R-package `spdep` facilitates building a neighbors list based on the defined regions and then generates a weights matrix $\mathbf{W}$ (e.g. $w_{ij} = 1$ if region $i$ is neighbor of $j$ and zero otherwise) .
+
+```{r}
+#| message: false
+#| warning: false
+#| code-fold: false
+
+library(spdep)
+N.adj <- poly2nb(pl = R_i)
+W.nb<- nb2mat(N.adj, style = "B")
+```
+
+Next, we find the region id where each observation lies and append this information to the data set.
+
+```{r}
+#| code-fold: false
+svc_data_R <- svc_data %>% mutate(cellid = unlist(st_intersects(svc_data,R_i)))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| eval: false
+#|
+# check if point i is in region j
+ggplot() +
+  geom_sf(data=R_i,aes(fill=factor(cellid))) + geom_sf(data=svc_data_R[32,])
+svc_data_R[32,"cellid"]
+
+```
+
+The spatial relationships can be described by one of INLA's available areal spatial models (see `inla.list.models("latent")` for a list of the latent models available in `INLA`). In this example, we will use the Besag-York-Mollié model (BYM) which is an extension to the intrinsic CAR model that contains an i.i.d. model component for the non-spatial heterogeneity, i.e.
+
+```{=tex}
+\begin{align*}
+\beta_{R_i} &= u_i + v_i \\
+u_i|\mathbf{u}_{-i} &~\sim N \left(\frac{\sum_j w_{ij}u_j}{\sum_j w_{ij}},\frac{1}{\tau_1\sum_j w_{ij}}\right)\\
+v_i &\sim N(0,\tau_2^{-1})
+\end{align*}
+```
+Thus, slopes are sampled from a normal distribution, where the conditional mean is linked to the average of neighboring cells and a conditional variance proportional to the variance across adjacent cells and inversely proportional to the number of adjacent cells. For fitting this model in `INLA` we need a spatial index for the spatial field $\omega(i)$ and projection matrix to map the model domain to the coordinates of the data.
+
+```{r}
+#| code-fold: false
+iset_sp <- inla.spde.make.index(name = "spatialfield",
+                                n.spde =  spde$n.spde)
+A_sp <- inla.spde.make.A(mesh = mesh,
+                         loc = st_coordinates(svc_data_R))
+```
+
+We also need to supply the region index from the data as a numerical input in the stack effects list.
+
+```{r}
+#| code-fold: false
+#| source-line-numbers: "8"
+stk <- inla.stack(data=list(Ycounts = svc_data_R$y,
+                            Ncounts = svc_data_R$nvisits,
+                            det_cov= svc_data_R$g_s,
+                            Int_det = 1),
+                  A=list(A_sp,1),
+                  effects=list(iset_sp,
+                               data.frame(Int_occ = 1,
+                                    region_id = svc_data_R$cellid,
+                                    scale_time = svc_data_R$scale_time,
+                                    time = svc_data_R$time)),
+                  tag='SVC_R')
+
+```
+
+To fit the regional varying trend model with BYM structured spatial effects, the component related to the space-varying coefficient in the model formula must contain:
+
+1.  The region id (as defined in the data stack)
+
+2.  The covariate value (in this case the scaled-time)
+
+3.  The CAR model (`model ="bym"`)
+
+4.  The weight matrix $\mathbf{W}$
+
+```{r}
+#| code-fold: false
+#| source-line-numbers: "3"
+formula_svc_R = inla.mdata(cbind(Ycounts,Ncounts),Int_det,det_cov) ~
+  -1 + Int_occ +
+  f(region_id,scale_time, model = "bym", graph = W.nb)  +
+  f(spatialfield,
+    model = spde)
+
+
+```
+
+We will save the `inla` output as `model_svc_R` :
+
+```{r}
+model_svc_R <- inla(formula_svc_R, #the formula
+              data=inla.stack.data(stk),
+              family= '0binomialS',
+              control.fixed =  list(prec = 1, prec.intercept = 1),
+              control.predictor=list(A=inla.stack.A(stk),
+                                     compute=TRUE),
+              control.compute = list(dic = TRUE, waic = TRUE,
+                                     config = TRUE),
+              # verbose = TRUE,
+              control.inla = list(int.strategy = "eb"),
+              control.family = list(control.link = list(model = "logit"),
+                                    link.simple = "logit",
+                                    hyper = list(beta1 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta2 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta3 = list(param  = c(0,1/3),
+                                                              initial= 0),
+                                                 beta4 = list(param  = c(0,1/3),
+                                                              initial= 1))))
+```
+
+To visualize the results we can take the prediction grid created for the prediction of the continuous-space varying trend model and index each cell according to the region $R_i~\mbox{for } i = 1,\ldots,20$.
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+
+
+# add cellid to prediction grid
+projection_grid_R <- st_intersection(projection_grid,R_i)
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: Grid for predicting the space-varying trend estimated with the Regional SVC model across 20 non-overlapping regions.
+#| label: fig-pred_region
+ggplot()+
+  geom_sf(data=projection_grid_R,aes(fill=as.factor(cellid)),alpha=0.35)+
+  scale_fill_viridis_d(name = expression(R[j]),option = "turbo")+
+    theme(legend.position = 0)
+```
+
+Next, we compute posterior samples of the model to evaluate the trend for each cell indexed by region $R_i$.
+
+```{r}
+#| code-fold: false
+#| source-line-numbers: "2,6"
+
+# samples
+samples = inla.posterior.sample(1000, model_svc_R)
+
+# evaluate the spatial temporal trend
+svc_eval_R = inla.posterior.sample.eval(function(x)
+  -(region_id[projection_grid_R$cellid]), samples)
+
+
+```
+
+Finally, we can compute posterior quantities (i.e. the mean, quantiles, etc) and check for significance. This information can be appended directly into the prediction grid which can be then be rasterized using the `stars` R-package for visualization purposes.
+
+```{r}
+#| code-fold: false
+
+
+# append to prediction grid
+projection_grid_R =projection_grid_R %>%
+  mutate( z = apply(svc_eval_R,1,mean),
+          q1 = apply(svc_eval_R,1,quantile,0.025),
+          q2 = apply(svc_eval_R,1,quantile,0.975),
+          check = case_when( q1>=0 & q2>=0 ~1,
+                             q1<0 & q2<0 ~ -1,
+                             q1<0 & q2>0 ~ 0))
+
+# Rasterize
+regional_trend <-stars::st_rasterize(projection_grid_R)
+
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 10
+#| fig-cap: Estimated regional varying trend from a SVC model.
+#| label: fig-svc_R_trend
+
+
+# ggplot() + tidyterra::geom_spatraster(data=dd$z)  + coord_equal() +
+#   scale_fill_scico(name= "Mean \ntemporal trend")+
+# ggplot() + tidyterra::geom_spatraster(data=dd$check)  + coord_equal() +
+#   scale_fill_manual(name="Change in trend",values = c("-1" = "maroon",
+#                                "0" = "grey",
+#                                "1" = "cyan4"),
+#                     labels = c("Negative", "No change", "Positive"), na.translate = F)+
+ggplot()+ stars::geom_stars(data=regional_trend,aes(fill=z))+ coord_equal() +
+  scale_fill_scico(name= "Mean \ntemporal trend")+
+ggplot()+ stars::geom_stars(data=regional_trend,aes(fill=factor(check)))+
+coord_equal() +
+  scale_fill_manual(name="Change in trend",values = c("-1" = "maroon",
+                               "0" = "grey",
+                               "1" = "cyan4"),
+                    labels = c("Negative", "No change", "Positive"), na.translate = F)+plot_layout(ncol=1)
+
+```

@@ -1,0 +1,339 @@
+---
+title: "Occupancy CV"
+execute:
+  eval: true
+format: 
+  html: 
+    embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## INLA LGOCV
+
+## Preamble
+
+The underlying logic is that of a Bayesian prediction setting where we approximate the posterior predictive density $\pi(\mathbf{\tilde{Y}}|\mathbf{y})$ defined as the integral over the posterior distribution of the parameters, i.e.
+
+$$\pi(\mathbf{\tilde{Y}}|\mathbf{y}) = \int_\Theta \pi(\mathbf{\tilde{Y}}|\Theta,\mathbf{y}) \pi(\Theta|\mathbf{y})d\Theta$$
+
+the LGOCV selects a fixed test point $i$ and remove a certain group of data $\mathcal{I}_i$ according to a specific prediction task. Thus, we are interested in the posterior predictive density
+
+$$\pi(Y_i|\mathbf{y}_{-\mathcal{I}_i}) = \int_\Theta \pi(Y_i|\Theta,\mathbf{y}_{-\mathcal{I}_i}) \pi(\Theta|\mathbf{y})d\Theta$$
+
+with this we can compute a point estimate $\tilde{Y_i}$ based on $\pi(Y_i|\mathbf{y}_{-\mathcal{I}_i})$ and assess the predictive performance using a sensible loss function/scoring rule $U(\tilde{Y}_i,Y_i)$
+
+A LGM is a hierarchical Bayesian model of the form:
+
+```{=tex}
+\begin{align*}
+
+        \theta&\sim\pi(\theta)\\
+
+        \mathbf{x}|\theta &\sim\pi(\mathbf{x}|\theta) = \mathcal{N}(0,\mathbf{Q}^{-1}(\theta))\\   
+
+        \mathbf{y}|\mathbf{x},\theta&\sim\pi(\mathbf{y}|\pmb{\eta}(\mathbf{x}),\mathbf{\theta})\\
+
+        \pmb{\eta}(\mathbf{x})&= \mathbf{A}\mathbf{x},
+
+  \end{align*}
+```
+Thus, $\pi(Y_i|\mathbf{y}_{-\mathcal{I}_i})$ can be approximate with the nested integral
+
+```{=tex}
+\begin{align}
+\pi(Y_i|\mathbf{y}_{-\mathcal{I}_i}) &= \int_\theta \pi(Y_i|\theta,\mathbf{y}_{-\mathcal{I}_i}) \pi(\theta|\mathbf{y}_{-\mathcal{I}_i})d\theta \nonumber\\ \pi(Y_i|\theta,\mathbf{y}_{-\mathcal{I}_i}) &= \int\pi(Y_i|\eta_i,\theta)\pi(\eta_i|\theta,\mathbf{y}_{-\mathcal{I}_i})d\eta_i
+\end{align}
+```
+so basically we need to compute:
+
+1.  $\pi(\eta_i|\theta,\mathbf{y}_{-\mathcal{I}_i})$ by using a Gaussian approximation based on $\pi_G(\eta_i|\theta,\mathbf{y}_{-\mathcal{I}_i})$ (a variational Bayes correction for the mean is then implemented)
+2.  $\pi(\theta|\mathbf{y}_{-\mathcal{I}_i})$ which is a correction of $\pi(\theta|\mathbf{y})$
+
+details on how these densities are approximated are found in Liu & Rue (2022; <https://arxiv.org/abs/2210.04482>).
+
+INLA's `inla.group.cv` function computes the Gaussian approximation $\pi(\eta_i|\theta^*,\mathbf{y}_{-\mathcal{I}_i})$ providing the mean and standard deviation.
+
+::: callout-note
+`inla.group.cv` defines $\theta^*$ to be the mode of the $\pi(\theta|\textbf{y})$. To use all of the $k$ hyperparameter configurations and compute $\pi(Y_i|\theta,\mathbf{y}_{-\mathcal{I}_i}) = \int \pi(Y_i|\eta_i,\theta)\pi(\eta_i|\theta,\mathbf{y}_{-\mathcal{I}_i})d\eta_i$, the option `control.gcpo` needs to be passed on to `control.compute`. Then, we can integrate out the uncertainty of the hyperparameters by computing
+
+$\pi(Y_i|\theta,\mathbf{y}_{-\mathcal{I}_i}) = \int \pi(\theta|\mathbf{y}_{-\mathcal{I}_i})\pi(Y_i|\theta,\mathbf{y}_{-\mathcal{I}_i})d\theta$
+
+where
+
+$\pi(\theta|\mathbf{y}_{-\mathcal{I}_i}) \propto \dfrac{\pi(\theta|\mathbf{y})}{\pi(y_{\mathcal{I}_i}|\theta,y_{-\mathcal{I}_i})}$
+
+-   the log $\pi(\theta|\mathbf{y})$ can be obtained within in an INLA fitted model from `fit$misc$configs$config[[k]]$log.posterior`
+
+-   with the correction term stored in `fit$misc$configs$config[[k]]$gcpodens.moments[,"log.theta.correction"].`
+:::
+
+::: {.callout-caution icon="false"}
+## Question
+
+In practice, do results differ substantially when we use all hyperparameter configurations as opposed to using the posterior mode? Or is it safe just to go ahead with the mode.
+:::
+
+# LGOCV for Occupancy Models
+
+The occupancy model is defined as a ZIB
+
+```{=tex}
+\begin{align}  L({\psi},{p}|{y}_1,\ldots,{y}_{Nsites}) = \prod_{i=1}^{N}\prod_{j = 1}^{K_i} \psi_i  p_{ij}^{y_{ij}} (1-p_{ij})^{1-y_{ij}} +I_{[y_{ij} = 0]}(1-\psi_i),\label{eq:ZIB} \end{align}
+```
+In INLA this is
+
+$$
+\pi(y|\eta_1,\eta_2) = p(\eta_1)\mathbb{I}_{y=0} + (1 - p(\eta_1))\pi(y|\eta_2)
+$$
+
+For the occupancy model, the occupancy probabilities can be defined as $\psi = 1-p(\eta_1)$ and $\pi(y|\eta_2)$ is a Binomial likelihood. The idea is to use the `inla.group.cv` to sample an observation $i$ (in this case the observed occupancy state) using the posterior densities on the training set. Then we want to compute the prediction scores
+
+```{=tex}
+\begin{align*}
+\pi(\eta_{\mathcal{I}_i}|\theta,\mathcal{D}_{-\mathcal{I}_i})\nonumber\\
+\pi(\theta|\mathcal{D}_{-\mathcal{I}_i})
+\end{align*}
+```
+Now, suppose testing point $i$ is a positive occurrence state, i.e. $y_{ij} = 1$ for some $j\in 1,\ldots,N_{visits}$. Then, we select an appropriate group $\mathcal{I}_i$ to define the training set $\mathcal{D}_{-\mathcal{I}_i}$ (e.g. a buffer of size $b$ centred in $i$).
+
+We sample $\tilde{y}_i$ from the posterior predictive density:
+
+$$\pi(Y_i|\theta^*,\mathbf{y}_{-\mathcal{I}_i}) = \int\pi(Y_i|\eta_i,\theta^*)\pi(\eta_i|\theta^*,\mathbf{y}_{-\mathcal{I}_i})d\eta_i$$
+
+1.  The likelihood $\pi(Y_i|\eta_i,\theta^*)$ should be the binomial density
+2.  The Gaussian approximation is $\pi(\eta_i|\theta^*,\mathbf{y}_{-\mathcal{I}_i})$
+
+::: {.callout-note icon="false"}
+## Question
+
+The posterior density $\pi(Y_i=y_i|\mathbf{y}_{-\mathcal{I}_i})$ is then computed from the product of $\eta_1$ and $\eta_2$?
+:::
+
+What if the testing point $i$ is a non-occupied state, i.e. $y_{ij} = 0~ \forall ~j$ . Conditioned on the true state $z_i$, this could be a true absence $y_{ij} = 0| z_i = 0$ or a false negative $y_{ij} = 0| z_i = 1$\$. Then $\tilde{y}_i$ is also sampled from the posterior density that integrates over $\eta$?
+
+Also don't we need to define $1-p(\eta_1)$ to get the linear predictor on the correct scale?
+
+## Scoring functions
+
+Since we are interested in probabilistic predictions we can use Brier Score, logarithmic or AUC. E.g
+
+-   Logarithmic Score
+
+$$\frac{1}{n}\sum_{i=1}^n \mathrm{log}~ \pi(\mathbf{\tilde{y}}|\mathbf{y})$$
+
+## Example
+
+### Simulated Data and simple occupancy model
+
+We fit the model:
+
+```{=tex}
+\begin{align*}
+
+z_i &\sim \mathrm{Bernoulli}(\psi_i) ~\mbox{for } i =1,\ldots,N_{sites} \\
+
+\mbox{logit}(\psi_i) &= \beta_0 + \beta_1 \mbox{elevation}_{i} + \mbox{site effect}_i \\
+
+\sum_j^K y_{ij} &\sim \mathrm{Binomial}(K,p_i \times z_i) ~\mbox{for } K \mbox{visits}\\
+
+\mathrm{logit}(p_i) &= \alpha_0 + \alpha_1 \mbox{mean day}_{i} 
+
+\end{align*}
+```
+<<<<<<< Updated upstream
+
+
+
+
+=======
+>>>>>>> Stashed changes
+```{r}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+library(INLA)
+library(inlabru)
+library(fmesher)
+library(tidyverse)
+library(sf)
+library(terra)
+library(dplyr)
+library(spOccupancy)
+
+set.seed(400)
+J.x <- 20
+J.y <- 20
+n.rep <- rep(4, J.x * J.y)
+beta <- c(0.5, -0.15)
+alpha <- c(0.7, 0.4)
+phi <- 3 / .6
+sigma.sq <- 2
+psi.RE <- list(levels = 10, 
+               sigma.sq.psi = 1.2)
+
+dat <- simOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, beta = beta, alpha = alpha,
+              psi.RE = psi.RE, sp = TRUE, cov.model = 'spherical', 
+              sigma.sq = sigma.sq, phi = phi)
+
+data_counts = data.frame(site = rep(1:(J.x*J.y)),
+           n = rep(4, each = J.x*J.y),
+           y = apply(dat$y,1,sum),
+           day = apply(dat$X.p[,,2],1,mean),
+           elev = dat$X[,2],
+           X = dat$coords[,1],
+           Y = dat$coords[,2],
+           int_detection = 1)
+
+
+formula1 = inla.mdata(cbind(y,n),int_detection,day) ~ 
+   f(site, model =  "iid") 
+
+model1 <- inla(formula1, data=data_counts, family= '0binomialS',verbose = FALSE,
+               control.compute = list( config = TRUE,dic  = T, waic = T),
+               control.fixed = list(prec.intercept = 1/2.72,prec = 1/2.72),
+               control.family = list(control.link = list(model = "logit"),
+                                     link.simple = "logit",
+                                     hyper = list(beta1 = list(param = c(0,1),
+                                                           initial = 0),
+                                                  beta2 = list(param = c(0,1)))))
+
+```
+
+Define the leave-out group $\mathcal{I}_i$ for the $i$th row of our data:
+
+```{r}
+data_counts_sf <- data_counts |> st_as_sf(coords =c("X","Y"))
+# create buffer of size 0.25 centred at each site
+df_counts_buff25 <- st_buffer(data_counts_sf, dist = 0.25)
+# empty lists to include the indexes of the leave-out-group for each observation i
+Index_counts_buffer25 <- list()
+
+# loop though each observatios and store the leave-out-group based on the buffer
+for( i in 1:nrow(data_counts_sf)){
+  Index_counts_buffer25[[i]] = st_intersects(data_counts_sf[i,], df_counts_buff25)[[1]]
+}
+```
+
+We use LGOCV to evaluate the model performance:
+
+```{r}
+lgocv_occ = inla.group.cv(result = model1, groups= Index_counts_buffer25)
+
+```
+
+The posterior density $\pi(Y_i=y_i|\mathbf{y}_{-\mathcal{I}_i})$ can be obtained from `lgocv_occ$cv`
+
+So we can compute the log-score function as:
+
+```{r}
+mean(log(lgocv_occ$cv))
+```
+
+Now this is based on the counts data (assuming this is correct). We would like to implement let say the brier score or AUC for binary outcomes. Thus, we fit the following model to the presence-absence data:
+
+<<<<<<< Updated upstream
+
+=======
+```{=tex}
+>>>>>>> Stashed changes
+\begin{align}
+
+z_i &\sim \mathrm{Benroulli}(\psi_i) \quad \mbox{for } i =1,\ldots,N_{sites} \\
+
+\mathrm{logit}(\psi_i) &= \beta_0 + \beta_1 \mbox{elevation}_{i} + \mbox{site effect}_i \\
+
+\sum_j^K y_{ij} &\sim \mathrm{Bernoulli}(p_{ij} \times z_i) \mbox{for } j = 1,\ldots,K_{visits}\\
+
+\mathrm{logit}(p_{ij}) &= \alpha_0 + \alpha_1 \mbox{day}_{ij} 
+
+\end{align}
+<<<<<<< Updated upstream
+
+
+
+
+=======
+```
+>>>>>>> Stashed changes
+```{r}
+data_bin = data.frame(site = rep(1:(J.x*J.y), 4),
+           n = 1,
+           y = as.vector(dat$y),
+           day = as.vector(dat$X.p[,,2]),
+           elev = rep(dat$X[,2], 4),
+           X = rep(dat$coords[,1], 4),
+           Y = rep(dat$coords[,2], 4),
+           int_detection =1 )
+
+data_bin_sf <- data_bin |> st_as_sf(coords =c("X","Y"))
+# create buffer of size 0.25 centred at each site
+data_bin_buff25 <- st_buffer(data_bin_sf, dist = 0.25)
+# empty lists to include the indexes of the leave-out-group for each observation i
+Index_bin_buffer25 <- list()
+
+# loop though each observatios and store the leave-out-group based on the buffer
+for( i in 1:nrow(data_bin)){
+  Index_bin_buffer25[[i]] = st_intersects(data_bin_sf[i,], data_bin_buff25)[[1]]
+}
+
+model2 <- inla(formula1, data=data_bin, family= '0binomialS',verbose = FALSE,
+               control.compute = list( config = TRUE,dic  = T, waic = T),
+               control.fixed = list(prec.intercept = 1/2.72,prec = 1/2.72),
+               control.family = list(control.link = list(model = "logit"),
+                                     link.simple = "logit",
+                                     hyper = list(beta1 = list(param = c(0,1),
+                                                           initial = 0),
+                                                  beta2 = list(param = c(0,1)))))
+
+
+lgocv_occ = inla.group.cv(result = model2, groups= Index_bin_buffer25)
+
+```
+
+This is were its getting confusing lets look at the output of say the first 5 sites
+
+```{r}
+data.frame(pred_dens = lgocv_occ$cv[which(data_bin$site%in%1:5)],
+           y = data_bin$y[which(data_bin$site%in%1:5)],
+           site_id=data_bin$site[which(data_bin$site%in%1:5)])
+```
+
+So here is when I am not longer sure of what is being computed, why do get this NA's? is the `cv` output the probability $Pr(Y_i=yi|\mathbf{y}_{-\mathcal{I}_i})$?
+
+If I wanted to compute say the Brier score does the following makes sense?
+
+```{r}
+brier <- function(probs, bool){
+  score<- sum(bool * (1 - probs)^2 + (1 - bool) * probs^2)
+  return(score)}
+
+brier(lgocv_occ$cv[which(!is.na(lgocv_occ$cv))],data_bin$y[which(!is.na(lgocv_occ$cv))])
+```
+
+```{r}
+#| echo: false
+#| eval: false
+
+# Mesh and spde
+boundary = inla.nonconvex.hull(points = dat$coords, convex = .3)
+
+mesh = fm_mesh_2d(boundary = boundary,
+                     offset = c(0.2, 0.5), 
+  max.edge = c(0.1, 0.3), cutoff = 0.05)
+
+matern <- inla.spde2.pcmatern(
+  mesh = mesh, 
+    # PC-prior on range: P(practic.range < 0.05) = 0.1
+  prior.range = c(0.05, 0.1),
+    # PC-prior on sigma: P(sigma > 1) = 0.5
+  prior.sigma = c(1, 0.5)) 
+
+A_sp <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(data$X, data$Y))
+
+iset_sp <- inla.spde.make.index(name = "spatial_field", matern$n.spde)
+
+```

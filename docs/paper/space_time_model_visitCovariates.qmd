@@ -1,0 +1,718 @@
+---
+title: "Space time Occupacy model with INLA"
+format: html
+editor: source
+editor_options: 
+  chunk_output_type: console
+bibliography: references.bib
+execute: 
+  echo: false
+  warning: false
+  message: false
+  collapse: true
+---
+
+# Introduction 
+
+In this document we show how to fit a space time occupancy  model for the dataset "hbefTrends" in the 'spOccupacy'  library.
+
+```{r setup}
+#| message: false
+#| warning: false
+
+library(INLA) 
+library(tidyverse)
+library(spOccupancy)
+library(scico)
+library(patchwork)
+library(kableExtra)
+library(raster)
+library(sf)
+
+rm(list = ls())
+
+plot_inla_effects = function(effect)
+{
+  p1 = ggplot(data.frame(effect)) +
+    geom_line(aes(ID, -mean)) + 
+    geom_ribbon(aes(ID, ymin = -X0.025quant, ymax = -X0.975quant),
+                alpha = 0.5)
+  print(p1)
+  
+}
+
+
+theme_maps = theme(axis.line=element_blank(),
+                   axis.text.x=element_blank(),
+                   axis.text.y=element_blank(),
+                   axis.ticks=element_blank(),
+                   axis.title.x=element_blank(),
+                   axis.title.y=element_blank()
+                   #legend.position="none",
+                   #panel.background=element_blank(),
+                   #panel.border=element_blank(),
+                   #panel.grid.major=element_blank(),
+                   #panel.grid.minor=element_blank(),
+                   #plot.background=element_blank()
+)
+```
+
+# Load and prepare the data
+We first load the data and select the species of interest. Here we choose BTBW which is not one of the rare species present in the dataset.
+ 
+Afterwards we prepare the data in the format that is required by the INLA library
+
+```{r}
+
+data(hbefTrends)
+
+revi.data <- hbefTrends
+sp.names <- dimnames(hbefTrends$y)[[1]]
+revi.data$y <- revi.data$y[sp.names == 'REVI', , , ]
+revi.data$coords = revi.data$coords/1000 #get this in km!
+
+
+data = data.frame(site = rep(1:373, 9*3),
+           visit = rep(1:3, each = 373*9),
+           time = rep(rep(1:9,  each =  373),3),
+           y = as.vector(revi.data$y),
+           day = as.vector(revi.data$det.covs$day),
+           tod = as.vector(revi.data$det.covs$tod),
+           elev = rep(revi.data$occ.covs$elev, 9*3),
+           X = rep(revi.data$coords[,1], 9*3),
+           Y = rep(revi.data$coords[,2], 9*3)) %>%
+  mutate(n = ifelse(!is.na(y),1,0))
+
+
+
+
+
+
+data = data %>%  mutate(scale_day = scale(day),
+                        scale_tod = scale(tod),
+                        scale_time = scale(time),
+                        scale_elev = scale(elev)) %>%
+  mutate(scale_elev2 = scale_elev^2,
+         scale_day2 = scale_day^2,
+         int_detection = 1)
+
+
+
+data %>% 
+  group_by(X,Y,time) %>%
+  summarise(counts = sum(y, na.rm = T),
+            nvisits = sum(n)) %>%
+  ggplot() + 
+  geom_point(aes(X,Y, color= counts/nvisits), size = .5) + 
+  facet_wrap(.~time) + theme_maps +
+  scale_color_scico(na.value = "transparent") +
+  ggtitle("Data")
+
+
+
+
+```
+
+
+```{r}
+elev_raster= raster::rasterFromXYZ(data.frame(x = hbefElev$Easting/1000,
+                                              y = hbefElev$Northing/1000,
+                                              z = hbefElev$val))
+
+elev_raster2 = resample(elev_raster, raster(nrows=100, ncols=100, 
+                                            xmn=274, xmx=284,
+                                            ymn=4866, ymx=4872, 
+                                            vals=NULL))
+values(elev_raster2) <- (values(elev_raster2) - mean(revi.data$occ.covs$elev)) / sd(revi.data$occ.covs$elev)
+
+
+scale_time1 = (c(1:9) - mean(1:9))/sd(1:9)
+pred_df = data.frame(x = rep(coordinates(elev_raster2)[,1],9),
+                     y = rep(coordinates(elev_raster2)[,2],9),
+                     scale_elev = rep(values(elev_raster2),9),
+                     scale_time = rep(scale_time1, 
+                                      each = length(values(elev_raster2))),
+                     time = rep(c(1:9), each= length(values(elev_raster2)))) %>%
+  dplyr::filter(!is.na(scale_elev))
+
+xx = inla.group(c(data$scale_elev, pred_df$scale_elev),
+                n = 35)
+
+
+data$group_elev = xx[1:dim(data)[1]]
+pred_df$group_elev = xx[-c(1:dim(data)[1])]
+
+val_elev = sort(unique(xx))
+
+```
+
+
+# Model fit
+
+
+## Model 1 
+
+
+ This is  a separable space time model with linear predictors
+$$
+\eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + f_3(s)
+$$
+where
+$f_1(\text{elev})$ is a smooth (RW2) effect of the elevation
+$f_2(t)$ is a AR1 effect of time
+$f_3(s)$ is an IID effect of location
+
+The model has two version of the detection function. In the version A the detection is a function of day of survey and time of the day. 
+
+$$
+\text{logit}^A(p_{st})  = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
+$$
+
+In version B the detection is constant.
+$$
+\text{logit}^B(p_{st}) = \alpha_0 
+$$
+
+```{r}
+data = data %>% 
+  mutate(random = seq_along(X))
+
+formula1A = inla.mdata(cbind(y,n),int_detection, scale_tod, scale_day) ~ 
+  f(group_elev,model = "rw2", values = val_elev) + 
+  f(site, model =  "iid") + 
+  f(time, model = "iid")
+
+formula1B = inla.mdata(cbind(y,n),int_detection) ~ 
+  f(group_elev,model = "rw2", values = val_elev) + 
+  f(site, model =  "iid") + 
+  f(time, model = "iid")
+
+time1A = system.time(model1A <- inla(formula1A, 
+                                   data=data,  
+                                   family= '0binomialS',   
+                                   verbose = FALSE,
+                                   control.compute = list( config = TRUE,
+                                                           dic  = T,
+                                                           waic = T),
+                                   control.fixed = list(prec.intercept = 1/2.72,
+                                                        prec = 1/2.72),
+                                   control.family = list(control.link = list(model = "logit"), 
+                                                         link.simple = "logit",
+                                                         hyper = list(beta1 = list(param = c(0,1), 
+                                                                                   initial = 0),
+                                                                      beta2 = list(param = c(0,1)),
+                                                                      beta3 = list(param = c(0,1)),
+                                                                      beta4 = list(param = c(0,1)),
+                                                                      beta5 = list(param = c(0,1))))))
+
+time1B = system.time(model1B <- inla(formula1B, 
+                                   data=data,  
+                                   family= '0binomialS',   
+                                   verbose = FALSE,
+                                   control.compute = list( config = TRUE,
+                                                           dic  = T,
+                                                           waic = T),
+                                   control.fixed = list(prec.intercept = 1/2.72,
+                                                        prec = 1/2.72),
+                                   control.family = list(control.link = list(model = "logit"), 
+                                                         link.simple = "logit",
+                                                         hyper = list(beta1 = list(param = c(0,1), 
+                                                                                   initial = 0),
+                                                                      beta2 = list(param = c(0,1)),
+                                                                      beta3 = list(param = c(0,1)),
+                                                                      beta4 = list(param = c(0,1)),
+                                                                      beta5 = list(param = c(0,1))))))
+
+
+
+```
+
+## Model 2
+
+```{r}
+boundary = inla.nonconvex.hull(points = revi.data$coords, convex = .3)
+mesh = inla.mesh.2d(boundary = boundary,
+                    #   loc = cbind(data$X, data$Y),
+                    max.edge = c(0.1,0.7),
+                    min.angle = 20,
+                    offset = c(.01, 1),
+                    cutoff = 0.12,
+)
+ggplot() + inlabru::gg(mesh) +
+  geom_point(data = data, aes(X,Y), pch = ".") +
+  coord_equal() + theme_maps
+
+bbox = data |> st_as_sf(coords = c("X","Y")) |> st_bbox()
+
+spde <- inla.spde2.pcmatern(
+  mesh = mesh, 
+  prior.range = c(5, 0.01),
+  prior.sigma = c(1, 0.5)) 
+
+```
+
+
+This is a space-time model with linear predictor as
+$$
+\eta_{st} = \beta_0 + f_1(\text{elev}) + f_2(t) + \omega(s) 
+$$
+with
+$f_1()$ and $f_2()$ as before while $\omega(s)$ is a gaussian spatial 
+field
+
+The model has two version of the detection function. In the version A the detection is a function of day of survey and time of the day. 
+
+$$
+\text{logit}^A(p_{st})  = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
+$$
+
+In version B the detection is constant.
+$$
+\text{logit}^B(p_{st})  = \alpha_0 
+$$
+
+
+```{r}
+
+data$random = seq_along(time)
+iset_sp <- inla.spde.make.index(name = "spatialfield",
+                                n.spde =  spde$n.spde)
+
+A_sp <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(data$X, data$Y))
+
+stk <- inla.stack(data=list(Ycounts = data$y, 
+                            Ncounts = data$n,
+                            scale_day = data$scale_day,
+                            scale_day2 = data$scale_day2,
+                            scale_tod = data$scale_tod,
+                            Int_det = 1), #the response
+                  A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates)
+                  effects=list(c(list(Int_occ=1), #the Intercept
+                                 iset_sp),  #the spatial index
+                               #the covariates
+                               list(scale_elev = data$scale_elev, 
+                                    scale_elev2 = data$scale_elev2, 
+                                    time = data$time,
+                                    group_elev = data$group_elev,
+                                    scale_time = data$scale_time,
+                                    site = data$site,
+                                    random = data$random)), 
+                  #this is a quick name so yo can call upon easily
+                  tag='dat')
+
+formula2A <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det,scale_tod, scale_day) ~ 
+  f(group_elev, model = "rw2", values = val_elev) + 
+  -1 + Int_occ +  #time + 
+  f(time, model = "iid") + 
+  f(spatialfield, model=spde) 
+
+formula2B <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det) ~ 
+  f(group_elev, model = "rw2", values = val_elev) + 
+  -1 + Int_occ +  #time + 
+  f(time, model = "iid") + 
+  f(spatialfield, model=spde)
+
+time2A = system.time(model2A <- inla(formula2A, 
+                                     data=inla.stack.data(stk),  
+                                     family= '0binomialS',  
+                                     control.fixed =  list(prec = 1, prec.intercept = 1),
+                                     control.predictor=list(A=inla.stack.A(stk),
+                                                            compute=TRUE), 
+                                     control.compute = list(dic = TRUE, waic = TRUE, 
+                                                            config = TRUE), 
+                                     verbose = FALSE,
+                                     control.family = list(control.link = list(model = "logit"), 
+                                                           link.simple = "logit",
+                                                           hyper = list(beta1 = list(param = c(0,1),
+                                                                                     initial = -1),
+                                                                        beta2 = list(param = c(0,1)),
+                                                                        beta3 = list(param = c(0,1))
+                                                           ))))
+time2B = system.time(model2B <- inla(formula2B, 
+                                     data=inla.stack.data(stk),  
+                                     family= '0binomialS',  
+                                     control.fixed =  list(prec = 1, prec.intercept = 1),
+                                     control.predictor=list(A=inla.stack.A(stk),
+                                                            compute=TRUE), 
+                                     control.compute = list(dic = TRUE, waic = TRUE, 
+                                                            config = TRUE), 
+                                     verbose = FALSE,
+                                     control.family = list(control.link = list(model = "logit"), 
+                                                           link.simple = "logit",
+                                                           hyper = list(beta1 = list(param = c(0,1),
+                                                                                     initial = -1),
+                                                                        beta2 = list(param = c(0,1)),
+                                                                        beta3 = list(param = c(0,1))
+                                                           ))))
+```
+
+
+## Model 3
+The last model is defined as:
+$$
+\eta_{st} = \beta_0 + f_1(\text{elev}) +  \omega(s,t) 
+$$
+with
+$f_1()$ is as before while $\omega(s,t)$ is a space-time gaussian spatial 
+field with AR1 time component
+
+The model has two version of the detection function. In the version A the detection is a function of day of survey and time of the day. 
+
+$$
+\text{logit}^A(p_{st})  = \alpha_0 + \alpha_1\text{tod} +\alpha_2\text{day}
+$$
+
+In version B the detection is constant.
+$$
+\text{logit}^B(p_{st})  = \alpha_0
+$$
+
+
+
+
+
+```{r}
+
+spde <- inla.spde2.pcmatern(
+  mesh = mesh, 
+  prior.range = c(1, 0.01),
+  prior.sigma = c(1, 0.5)) 
+
+
+
+iset_sp <- inla.spde.make.index(name = "spatialfield",
+                                n.spde =  spde$n.spde,
+                                n.group = 9)
+
+A_sp <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(data$X, data$Y), 
+                         group = data$time)
+
+stk <- inla.stack(data=list(Ycounts = data$y, 
+                            Ncounts = data$n,
+                            scale_day = data$scale_day,
+                            scale_day2 = data$scale_day2,
+                            scale_tod = data$scale_tod,
+                            Int_det = 1), #the response
+                  A=list(A_sp,1),  #the A matrix; the 1 is included to make the list(covariates)
+                  effects=list(c(list(Int_occ=1), #the Intercept
+                                 iset_sp),  #the spatial index
+                               #the covariates
+                               list(scale_elev = data$scale_elev, 
+                                    scale_elev2 = data$scale_elev2, 
+                                    time = data$time,
+                                    location = data$site,
+                                    group_elev = data$group_elev,
+                                    scale_time = data$scale_time)), 
+                  #this is a quick name so yo can call upon easily
+                  tag='dat')
+
+h.spec <- list(rho = list(prior = 'pc.cor0', param = c(0.5, 0.3)))
+
+
+formula3A <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det,scale_tod, scale_day) ~ 
+  -1   + Int_occ + 
+  f(group_elev, model = "rw2", values = val_elev) + 
+  f(spatialfield, 
+    model=spde, 
+    group = spatialfield.group, 
+    control.group = list(model = 'iid'))
+
+formula3B <- inla.mdata(cbind(Ycounts,Ncounts),
+                         Int_det) ~ 
+  -1   + Int_occ + 
+  f(group_elev, model = "rw2", values = val_elev) + 
+  f(spatialfield, 
+    model=spde, 
+    group = spatialfield.group, 
+    control.group = list(model = 'iid'))
+
+time3A = system.time(model3A <- inla(formula3A, #the formula
+                                     data=inla.stack.data(stk),  #the data stack
+                                     family= '0binomialS',   #which family the data comes from
+                                     control.fixed =  list(prec = 1, prec.intercept = 1),
+                                     control.predictor=list(A=inla.stack.A(stk),
+                                                            compute=TRUE),  #compute gives you the marginals of the linear predictor
+                                     control.compute = list(dic = TRUE, waic = TRUE, 
+                                                            config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
+                                     verbose = FALSE,
+                                     control.inla = list(int.strategy = "eb"),
+                                     control.family = list(control.link = list(model = "logit"), 
+                                                           link.simple = "logit",
+                                                           hyper = list(beta1 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta2 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta3 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta4 = list(param = c(0,1),
+                                                                                     initial = 0)
+                                                           ))))
+
+
+time3B = system.time(model3B <- inla(formula3B, #the formula
+                                     data=inla.stack.data(stk),  #the data stack
+                                     family= '0binomialS',   #which family the data comes from
+                                     control.fixed =  list(prec = 1, prec.intercept = 1),
+                                     control.predictor=list(A=inla.stack.A(stk),
+                                                            compute=TRUE),  #compute gives you the marginals of the linear predictor
+                                     control.compute = list(dic = TRUE, waic = TRUE, 
+                                                            config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
+                                     verbose = FALSE,
+                                     control.inla = list(int.strategy = "eb"),
+                                     control.family = list(control.link = list(model = "logit"), 
+                                                           link.simple = "logit",
+                                                           hyper = list(beta1 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta2 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta3 = list(param = c(0,1),
+                                                                                     initial = 0),
+                                                                        beta4 = list(param = c(0,1),
+                                                                                     initial = 0)
+                                                           ))))
+
+
+```
+
+
+# Results and Predictions
+```{r}
+# posterior samples -------------------------------------------------------
+sample1A = inla.posterior.sample(1000, model1A)
+sample2A = inla.posterior.sample(1000, model2A)
+sample3A = inla.posterior.sample(1000, model3A)
+
+sample1B = inla.posterior.sample(1000, model1B)
+sample2B = inla.posterior.sample(1000, model2B)
+sample3B = inla.posterior.sample(1000, model3B)
+```
+
+
+## Results 
+
+
+### Running times
+```{r}
+table = data.frame(elapsed_Time = c(time1A["elapsed"], time2A["elapsed"], time3A["elapsed"],
+                                    time1B["elapsed"], time2B["elapsed"], time3B["elapsed"]),
+                   DIC = c(model1A$dic$dic, model2A$dic$dic, model3A$dic$dic,
+                           model1B$dic$dic, model2B$dic$dic, model3B$dic$dic),
+                   WAIC = c(model1A$waic$waic, model2A$waic$waic, model3A$waic$waic,
+                            model1B$waic$waic, model2B$waic$waic, model3B$waic$waic),
+                   mlik = c(model1A$mlik[1,1],model2A$mlik[1,1],model3A$mlik[1,1],
+                            model1B$mlik[1,1],model2B$mlik[1,1],model3B$mlik[1,1]))
+rownames(table) = paste("Model", rep(c(1:3),2),rep(c("A","B"), each = 3), sep =  "")
+kable(table)
+
+```
+
+
+### elevation effect 
+First we look at the effect of elevation in the three fitted models
+
+```{r}
+nn = length(model1A$summary.random$group_elev$mean)
+data.frame(rbind(model1A$summary.random$group_elev,
+                 model2A$summary.random$group_elev,
+                 model3A$summary.random$group_elev,
+                 model1B$summary.random$group_elev,
+                 model2B$summary.random$group_elev,
+                 model3B$summary.random$group_elev),
+           model = paste("Model", 
+                         rep(rep(1:3, each = nn),2), sep = ""),
+           type = rep(c("A","B"), each = nn*3)) %>%
+  ggplot() + geom_line(aes(ID, -mean, color = model, group  = model)) +
+  geom_ribbon(aes(ID,ymin= -X0.025quant, ymax = -X0.975quant, 
+                  group = model, fill = model), alpha = 0.3) +
+  facet_grid(type~.) + xlab("(scaled) altitude")
+
+```
+
+
+
+
+## Predictions over space
+
+```{r}
+yy = c(1,9)
+pred1 = pred_df %>% dplyr::filter(time%in%yy)
+A2 = inla.spde.make.A(mesh= mesh, loc = cbind(pred1$x, pred1$y))
+A3 = inla.spde.make.A(mesh= mesh, loc = cbind(pred1$x, pred1$y),
+                        group = pred1$time)
+
+func1 = function(..., index_iid_error)
+{
+    aa =  -((Intercept) + 
+            group_elev[as.numeric(as.factor(pred1$group_elev))] +
+            time[pred1$time]  )
+  rand = rnorm(length(pred1$group_elev), 0, 1/sqrt(theta[index_iid_error]))
+  aa + rand
+}
+func2 = function(...)
+{
+  aa = -(Int_occ + 
+           group_elev[as.numeric(as.factor(pred1$group_elev))] +
+           time[pred1$time] +
+           (A2 %*% spatialfield)[,1] )
+  aa
+}
+func3 = function(...)
+{
+  aa = -(Int_occ + 
+           group_elev[as.numeric(as.factor(pred1$group_elev))] +
+           (A3 %*% spatialfield)[,1] 
+  )
+  aa
+}
+fix1A = inla.posterior.sample.eval(func1, sample1A, index_iid_error = 5)
+fix2A = inla.posterior.sample.eval(func2, sample2A)
+fix3A = inla.posterior.sample.eval(func3, sample3A)
+fix1B = inla.posterior.sample.eval(func1, sample1B, index_iid_error = 3)
+fix2B = inla.posterior.sample.eval(func2, sample2B)
+fix3B = inla.posterior.sample.eval(func3, sample3B)
+
+pred2 = pred1 %>%
+  mutate(sd1A = apply(fix1A,1,sd),
+         mean1A = apply(fix1A,1,mean),
+         sd2A = apply(fix2A,1,sd),
+         mean2A = apply(fix2A,1,mean),
+         sd3A = apply(fix3A,1,sd),
+         mean3A = apply(fix3A,1,mean),
+         sd1B = apply(fix1B,1,sd),
+         mean1B = apply(fix1B,1,mean),
+         sd2B = apply(fix2B,1,sd),
+         mean2B = apply(fix2B,1,mean),
+         sd3B = apply(fix3B,1,sd),
+         mean3B = apply(fix3B,1,mean)
+         ) 
+
+# New facet label names for years variable
+year.labs <- c("2010", "2018")
+names(year.labs) <- c("1", "9")
+
+# New facet label names for model variable
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("mean1", "mean2", "mean3")
+
+pred2 %>% dplyr::select(x,y,time, mean1A, mean2A, mean3A,mean1B, mean2B, mean3B ) %>%
+  pivot_longer(-c(x,y,time)) %>%
+  ggplot() + geom_tile(aes(x,y,fill = value)) +
+  coord_equal() + 
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="logit-scaled mean \noccupancy probability") + theme_maps +
+    theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
+
+ggsave(filename = "space_time_Occ_lprobs.pdf",dpi = 300,width = 3000,units = "px")
+
+model.labs <- paste("Model",1:3,sep=" ") 
+names(model.labs) <- c("sd1", "sd2", "sd3")
+
+pred2 %>% dplyr::select(x,y,time, sd1A, sd2A, sd3A,sd1B, sd2B, sd3B ) %>%
+  pivot_longer(-c(x,y,time)) %>%
+  ggplot() + geom_tile(aes(x,y,fill = value)) +
+  coord_equal() + 
+  facet_grid(time~name,labeller = labeller(time = year.labs,name=model.labs)) + scale_fill_scico(name="logit-scaled occupancy \nprobability (sd)") + theme_maps+theme(text=element_text(family="serif", size=20),
+                                              legend.text = element_text(size=16))
+
+ggsave(filename = "space_time_Occ_lsd.pdf",dpi = 300,width = 3000,units = "px")
+
+
+#' Probability of occurrence
+
+probs1A = inla.link.logit(fix1A, inverse = T)
+quant1A = apply(probs1A,1,quantile, c(0.025, 0.975))
+probs2A = inla.link.logit(fix2A, inverse = T)
+quant2A = apply(probs2A,1,quantile, c(0.025, 0.975))
+probs3A = inla.link.logit(fix3A, inverse = T)
+quant3A = apply(probs3A,1,quantile, c(0.025, 0.975))
+
+
+
+probs1B = inla.link.logit(fix1B, inverse = T)
+quant1B = apply(probs1B,1,quantile, c(0.025, 0.975))
+probs2B = inla.link.logit(fix2B, inverse = T)
+quant2B = apply(probs2B,1,quantile, c(0.025, 0.975))
+probs3B = inla.link.logit(fix3B, inverse = T)
+quant3B = apply(probs3B,1,quantile, c(0.025, 0.975))
+
+pred2 = pred1 %>%
+  mutate(mean1A = apply(probs1A,1,mean),
+         quant_range1A = quant1A[2,]-quant1A[1,],
+         mean2A = apply(probs2A,1,mean),
+         quant_range2A = quant2A[2,]-quant2A[1,],
+         mean3A = apply(probs3A,1,mean),
+         quant_range3A = quant3A[2,]-quant3A[1,],
+         
+         mean1B = apply(probs1B,1,mean),
+         quant_range1B = quant1B[2,]-quant1B[1,],
+         mean2B = apply(probs2B,1,mean),
+         quant_range2B = quant2B[2,]-quant2B[1,],
+         mean3B = apply(probs3B,1,mean),
+         quant_range3B = quant3B[2,]-quant3B[1,]) 
+
+pred2 %>% dplyr::select(x,y,time, mean1A, mean2A, mean3A, mean1B, mean2B, mean3B) %>%
+  pivot_longer(-c(x,y,time)) %>%
+  ggplot() + geom_tile(aes(x,y,fill = value)) +
+  coord_equal() + 
+  facet_grid(time~name) + scale_fill_scico() + theme_maps+
+  ggtitle("Mean Occurrence Probability")
+
+
+pred2 %>% dplyr::select(x,y,time, quant_range1A, quant_range2A, quant_range3A, quant_range1B, quant_range2B, quant_range3B) %>%
+  pivot_longer(-c(x,y,time)) %>%
+  ggplot() + geom_tile(aes(x,y,fill = value)) +
+  coord_equal() + 
+  facet_grid(time~name) + scale_fill_scico() + theme_maps+
+  ggtitle("Difference in quantile (.975-.025)")
+```
+
+## Parameters for the detection part of the model
+
+
+
+
+
+```{r}
+npar = 3
+tt = rbind(cbind(model1A$summary.hyperpar[1:3,c(1,3,5)],
+      model2A$summary.hyperpar[1:3,c(1,3,5)],
+      model3A$summary.hyperpar[1:3,c(1,3,5)]),
+      cbind(model1B$summary.hyperpar[1,c(1,3,5)],
+      model2B$summary.hyperpar[1,c(1,3,5)],
+      model3B$summary.hyperpar[1,c(1,3,5)]))
+rownames(tt) = paste(c("alpha0", "alpha1", "alpha2", "alpha0_2"))
+
+kbl(tt,  booktabs = TRUE, digits = 2) %>%
+  add_header_above(c("","Model 1" = 3, "Model 2" = 3, "Model 3" = 3)) %>%
+  kable_classic() %>%
+  pack_rows(
+  index = c("Model A" = 3, "Model B" = 1))
+
+```
+
+
+## Parameters of the SPDE model
+
+```{r}
+
+
+tt = rbind(cbind(model2A$summary.hyperpar[6:7,c(1,3,5)],
+      model3A$summary.hyperpar[5:6,c(1,3,5)]),
+      cbind(model2B$summary.hyperpar[4:5,c(1,3,5)],
+      model3B$summary.hyperpar[3:4,c(1,3,5)]))
+
+kbl(tt, booktabs = TRUE, digits = 2) %>%
+  add_header_above(c("", "Model 2" = 3, "Model 3" = 3)) %>%
+  kable_classic() %>%
+  pack_rows(
+  index = c("Model A" = 2, "Model B" = 2))
+
+```
+
+
+
