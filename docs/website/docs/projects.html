@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.450">
+<meta name="generator" content="quarto-1.4.553">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>Occupancy Models with R-INLA - Data Simulation</title>
 <style>
@@ -19,7 +19,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -55,6 +55,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging-indent div.csl-entry {
   margin-left:2em;
@@ -93,7 +94,13 @@ div.csl-indent {
   "collapse-after": 3,
   "panel-placement": "end",
   "type": "overlay",
-  "limit": 20,
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
   "language": {
     "search-no-results-text": "No results",
     "search-matching-documents-text": "matching documents",
@@ -102,17 +109,43 @@ div.csl-indent {
     "search-more-match-text": "more match in this document",
     "search-more-matches-text": "more matches in this document",
     "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
     "search-detached-cancel-button-title": "Cancel",
     "search-submit-button-title": "Submit",
     "search-label": "Search"
   }
-}</script><script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+}</script><script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 </head>
 <body class="nav-fixed">
 
 <div id="quarto-search-results"></div>
-  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg navbar-dark "><div class="navbar-container container-fluid">
-      <div class="navbar-brand-container">
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="./index.html">
     <span class="navbar-title">Occupancy Models with R-INLA</span>
     </a>
@@ -124,17 +157,17 @@ div.csl-indent {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
 <li class="nav-item">
-    <a class="nav-link" href="./index.html" rel="" target="">
- <span class="menu-text">Fitting Occupancy models with INLA</span></a>
+    <a class="nav-link" href="./index.html"> 
+<span class="menu-text">Fitting Occupancy models with INLA</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="./projects.html" rel="" target="" aria-current="page">
- <span class="menu-text">Data Simulation</span></a>
+    <a class="nav-link active" href="./projects.html" aria-current="page"> 
+<span class="menu-text">Data Simulation</span></a>
   </li>  
 </ul>
-<div class="quarto-navbar-tools ms-auto">
+</div> <!-- /navcollapse -->
+          <div class="quarto-navbar-tools">
 </div>
-          </div> <!-- /navcollapse -->
       </div> <!-- /container-fluid -->
     </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
@@ -148,7 +181,7 @@ div.csl-indent {
 <a href="#sec-SSOM" id="toc-sec-SSOM" class="nav-link" data-scroll-target="#sec-SSOM"><span class="header-section-number">2</span> Simulate data for a simple spatial occupancy model</a>
   <ul class="collapse">
 <li><a href="#state-process-model-sub-component" id="toc-state-process-model-sub-component" class="nav-link" data-scroll-target="#state-process-model-sub-component"><span class="header-section-number">2.1</span> State process model sub-component</a></li>
-  <li><a href="#observational-process-model-sub-component" id="toc-observational-process-model-sub-component" class="nav-link" data-scroll-target="#observational-process-model-sub-component"><span class="header-section-number">2.2</span> Observational process model sub-component</a></li>
+  <li><a href="#sec-obs_model" id="toc-sec-obs_model" class="nav-link" data-scroll-target="#sec-obs_model"><span class="header-section-number">2.2</span> Observational process model sub-component</a></li>
   </ul>
 </li>
   <li><a href="#sec-STOM" id="toc-sec-STOM" class="nav-link" data-scroll-target="#sec-STOM"><span class="header-section-number">3</span> Simulate space-time occupancy data</a></li>
@@ -170,19 +203,47 @@ div.csl-indent {
   </div>
   
 
+
 </header><p>This section describes the steps to simulate occurrence data for fitting spatially explicit occupancy models in <a href="https://www.r-inla.org/">R-INLA</a>.</p>
+<div class="callout callout-style-default callout-caution callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="true" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Caution
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse show">
+<div class="callout-body-container callout-body">
+<p>Make sure you have that latest <code>R</code> and <code>R-INLA</code> versions installed:</p>
+<ul>
+<li><p><code>R</code> version <code>4.4.0</code> or above</p></li>
+<li>
+<p><code>R-INLA</code> version <code>INLA_24.06.04</code> or above. For latest testing version use:</p>
+<div class="cell">
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"INLA"</span>,</span>
+<span>        repos<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/options.html">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span>,</span>
+<span>        INLA<span class="op">=</span><span class="st">"https://inla.r-inla-download.org/R/testing"</span><span class="op">)</span>, dep<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
 <section id="set_up" class="level1" data-number="1"><h1 data-number="1">
 <span class="header-section-number">1</span> Set up</h1>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Load the libraries</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Load the libraries</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va">INLA</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://www.inlabru.org">inlabru</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://inlabru-org.github.io/fmesher/">fmesher</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://spatstat.org/">spatstat</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://r-spatial.github.io/sf/">sf</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://rspatial.org/">terra</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org">ggplot2</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://gt.rstudio.com">gt</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org">dplyr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://sjmgarnier.github.io/viridis/">viridis</a></span><span class="op">)</span></span>
@@ -191,18 +252,18 @@ div.csl-indent {
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com">patchwork</a></span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<p>Define the spatial domain and the regular lattice by setting a <span class="math inline">\(300 \times 300\)</span> study area divided into <span class="math inline">\(5\times5\)</span> grid cells.</p>
+<p>Define the spatial domain and the regular lattice by setting a <span class="math inline">\(300 \times 300\)</span> study area divided into <span class="math inline">\(3\times3\)</span> grid cells.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Define spatial domain</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Define spatial domain</span></span>
 <span><span class="va">win</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/spatstat.geom/man/owin.html">owin</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>,<span class="fl">300</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>,<span class="fl">300</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">npix</span> <span class="op">&lt;-</span> <span class="fl">1000</span></span>
 <span></span>
-<span><span class="va">Domain</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/rast.html">rast</a></span><span class="op">(</span>nrows<span class="op">=</span><span class="va">npix</span>, ncols<span class="op">=</span><span class="va">npix</span>,</span>
+<span><span class="va">Domain</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html">rast</a></span><span class="op">(</span>nrows<span class="op">=</span><span class="va">npix</span>, ncols<span class="op">=</span><span class="va">npix</span>,</span>
 <span>               xmax<span class="op">=</span><span class="va">win</span><span class="op">$</span><span class="va">xrange</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,xmin<span class="op">=</span><span class="va">win</span><span class="op">$</span><span class="va">xrange</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
 <span>               ymax <span class="op">=</span> <span class="va">win</span><span class="op">$</span><span class="va">yrange</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,ymin<span class="op">=</span><span class="va">win</span><span class="op">$</span><span class="va">yrange</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/terra/man/values.html">values</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/pkg/terra/man/dimensions.html">ncell</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span></span>
-<span><span class="va">xy</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/crds.html">crds</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html">values</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html">ncell</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span></span>
+<span><span class="va">xy</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/crds.html">crds</a></span><span class="op">(</span><span class="va">Domain</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Define regular grid</span></span>
 <span><span class="va">cell_size</span> <span class="op">=</span> <span class="fl">3</span></span>
@@ -212,14 +273,18 @@ div.csl-indent {
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>cellid <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/row_number.html">row_number</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># number of cells</span></span>
-<span><span class="va">ncells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/dimensions.html">nrow</a></span><span class="op">(</span><span class="va">customGrid</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span><span class="va">ncells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html">nrow</a></span><span class="op">(</span><span class="va">customGrid</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell" data-layout-align="center">
 <div class="cell-output-display">
-<div id="fig-customGrid" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-customGrid-1.png" class="img-fluid figure-img" width="288"></p>
-<figcaption class="figure-caption">Figure&nbsp;1: Custom 5<span class="math inline">\(^2\)</span> units regular grid over a <span class="math inline">\(300^2\)</span> area .</figcaption></figure>
+<div id="fig-customGrid" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-customGrid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-customGrid-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="288">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-customGrid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Custom 5<span class="math inline">\(^2\)</span> units regular grid over a <span class="math inline">\(300^2\)</span> area .
+</figcaption></figure>
 </div>
 </div>
 </div>
@@ -227,8 +292,8 @@ div.csl-indent {
 <span class="header-section-number">2</span> Simulate data for a simple spatial occupancy model</h1>
 <p>We simulate three different Gaussian Markov Random fields (GMRF) using the <code>inla.qsample</code> function.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Spatial boundary</span></span>
-<span><span class="va">boundary_sf</span> <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_bbox.html">st_bbox</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>xmin <span class="op">=</span> <span class="fl">0</span>, xmax <span class="op">=</span> <span class="fl">300</span>, ymax <span class="op">=</span> <span class="fl">0</span>, ymin <span class="op">=</span> <span class="fl">300</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Spatial boundary</span></span>
+<span><span class="va">boundary_sf</span> <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_bbox.html">st_bbox</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>xmin <span class="op">=</span> <span class="fl">0</span>, xmax <span class="op">=</span> <span class="fl">300</span>, ymax <span class="op">=</span> <span class="fl">0</span>, ymin <span class="op">=</span> <span class="fl">300</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_as_sfc.html">st_as_sfc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Create a fine mesh</span></span>
@@ -252,10 +317,10 @@ div.csl-indent {
 <span><span class="va">sim_field</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/qsample.html">inla.qsample</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">3</span>, Q <span class="op">=</span> <span class="va">Q</span>, seed <span class="op">=</span> <span class="va">seed</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<p>Create the projector matrix <code>A_proj</code> using the centroid of each grid cell as coordinates and compute the spatial random effect <span class="math inline">\(\omega(s)\)</span>, spatial environmental covariate <span class="math inline">\(x(s)\)</span> and spatial detection covariate <span class="math inline">\(g(s)\)</span> (<a href="#fig-spatial_components">Figure&nbsp;2</a>). (Note: Covariates <span class="math inline">\(x(s)\)</span> and <span class="math inline">\(g(s)\)</span> are stored as raster data).</p>
+<p>Create the projector matrix <code>A_proj</code> using the centroid of each grid cell as coordinates and compute the spatial random effect <span class="math inline">\(\omega(s)\)</span>, spatial environmental covariate <span class="math inline">\(x(s)\)</span> and spatial detection covariate <span class="math inline">\(g_1(s)\)</span> (<a href="#fig-spatial_components" class="quarto-xref">Figure&nbsp;2</a>). (Note: Covariates <span class="math inline">\(x(s)\)</span> and <span class="math inline">\(g_1(s)\)</span> are assumed to be known and are stored as raster data).</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Obtain the centroid of each cell</span></span>
-<span><span class="va">coord_grid</span>  <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">customGrid</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Obtain the centroid of each cell</span></span>
+<span><span class="va">coord_grid</span>  <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">customGrid</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># A matrix</span></span>
 <span><span class="va">A_proj</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/inla.spde.make.A.html">inla.spde.make.A</a></span><span class="op">(</span><span class="va">mesh_sim</span>, loc <span class="op">=</span> <span class="va">coord_grid</span><span class="op">)</span></span>
 <span></span>
@@ -265,35 +330,40 @@ div.csl-indent {
 <span><span class="va">g_s</span> <span class="op">=</span> <span class="op">(</span><span class="va">A_proj</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">sim_field</span><span class="op">)</span><span class="op">[</span>,<span class="fl">3</span><span class="op">]</span> <span class="co"># spatial detection covariate</span></span>
 <span></span>
 <span><span class="co"># create rasters</span></span>
-<span><span class="va">x_rast</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/rast.html">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span>, y <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span>,<span class="va">x_s</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">g_rast</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/rast.html">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span>, y <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span>,<span class="va">g_s</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">x_rast</span> <span class="op">=</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span>, y <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span>,<span class="va">x_s</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">g_rast</span> <span class="op">=</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span>, y <span class="op">=</span> <span class="va">coord_grid</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span>,<span class="va">g_s</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># save raster data</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/terra/man/writeRaster.html">writeRaster</a></span><span class="op">(</span><span class="va">x_rast</span>,filename <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'raster data'</span>,<span class="st">'x_covariat.tif'</span>,sep<span class="op">=</span><span class="st">'/'</span><span class="op">)</span>,</span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/writeRaster.html">writeRaster</a></span><span class="op">(</span><span class="va">x_rast</span>,filename <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'raster data'</span>,<span class="st">'x_covariat.tif'</span>,sep<span class="op">=</span><span class="st">'/'</span><span class="op">)</span>,</span>
 <span>            overwrite<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/terra/man/writeRaster.html">writeRaster</a></span><span class="op">(</span><span class="va">g_rast</span>,filename <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'raster data'</span>,<span class="st">'g_covariat.tif'</span>,sep<span class="op">=</span><span class="st">'/'</span><span class="op">)</span>,overwrite<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/writeRaster.html">writeRaster</a></span><span class="op">(</span><span class="va">g_rast</span>,filename <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">'raster data'</span>,<span class="st">'g_covariat.tif'</span>,sep<span class="op">=</span><span class="st">'/'</span><span class="op">)</span>,overwrite<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-spatial_components" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-spatial_components-1.png" class="img-fluid figure-img" width="960"></p>
-<figcaption class="figure-caption">Figure&nbsp;2: Simulated spatial environmental and detection covariates and spatial random field.</figcaption></figure>
+<div id="fig-spatial_components" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-spatial_components-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-spatial_components-1.png" class="img-fluid figure-img" width="960">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-spatial_components-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Simulated environmental and detection spatial covariates, and spatial occupancy random field.
+</figcaption></figure>
 </div>
 </div>
 </div>
 <p>Occurrence data is simulated from the following occupancy model:</p>
-<span class="math display">\[\begin{align}  \mbox{State process:}&amp; \begin{cases} z_i  \sim \mathrm{Bernoulli}(\psi_i) \nonumber \\\mathrm{logit}(\psi_i) = \beta_0 + \beta_1 \ x(s) + \omega(s) \\
+<span class="math display">\[\begin{align}  \mbox{State process:}&amp; \begin{cases} z_i  \sim \mathrm{Bernoulli}(\psi_i) \nonumber \\\mathrm{logit}(\psi_i) = \beta_0 + \beta_1 \ x_i(s) + \omega_i(s) \\
 \end{cases}\\
-\mbox{ Observational process:}&amp; \begin{cases} y_i \sim \mathrm{Binomial}(K_i,z_i \times p_i) \nonumber \\\mathrm{logit}(p_i) = \alpha_0 + \alpha_1 \ g(s) \\
+\mbox{ Observational process:}&amp; \begin{cases} y_{ij} \sim \mathrm{Bernoulli}(z_i \times p_{ij}) \nonumber \\\mathrm{logit}(p_{ij}) = \alpha_0 + \alpha_1 \ g_{1i}(s)  + \alpha_2 \ g_{2ij}\\
 \end{cases}
 \end{align}\]</span>
+<p>Here, <span class="math inline">\(g_{2}\)</span> is a survey-level covariate that allows detection probabilities to vary between visits/surveys ( see <a href="#sec-obs_model" class="quarto-xref">Section&nbsp;2.2</a> for simulation details).</p>
 <section id="state-process-model-sub-component" class="level2" data-number="2.1"><h2 data-number="2.1" class="anchored" data-anchor-id="state-process-model-sub-component">
 <span class="header-section-number">2.1</span> State process model sub-component</h2>
-<p>Define model parameters <span class="math inline">\(\beta\)</span> and compute the occupancy probabilities <span class="math inline">\(\psi\)</span> and occupancy states <span class="math inline">\(z\)</span> (<a href="#fig-occ-state">Figure&nbsp;3</a>)</p>
+<p>Define model parameters <span class="math inline">\(\beta\)</span> and compute the occupancy probabilities <span class="math inline">\(\psi\)</span> and occupancy states <span class="math inline">\(z\)</span> (<a href="#fig-occ-state" class="quarto-xref">Figure&nbsp;3</a>)</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
 <span><span class="va">beta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span>  <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span> <span class="co"># Base line occupancy probability</span></span>
 <span><span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1.5</span>  <span class="co"># environmental covariate effect</span></span>
@@ -309,54 +379,67 @@ div.csl-indent {
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-occ-state" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-occ-state-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;3: Simulated occupancy probabilities and true presence/absence state</figcaption></figure>
+<div id="fig-occ-state" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-occ-state-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-occ-state-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-occ-state-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Simulated occupancy probabilities and true presence/absence state
+</figcaption></figure>
 </div>
 </div>
 </div>
-</section><section id="observational-process-model-sub-component" class="level2" data-number="2.2"><h2 data-number="2.2" class="anchored" data-anchor-id="observational-process-model-sub-component">
+</section><section id="sec-obs_model" class="level2" data-number="2.2"><h2 data-number="2.2" class="anchored" data-anchor-id="sec-obs_model">
 <span class="header-section-number">2.2</span> Observational process model sub-component</h2>
-<p>Random sample of 20 % of the total cells and draw a random number of <span class="math inline">\(K\)</span> visits per cell by setting a minimum of 1 and a maximum of 5 visits per site/cell.</p>
+<p>Firs, a random sample of 20 % of the total cells is obtained.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># number of cells/sites in the sample</span></span>
-<span><span class="va">nsites</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">ncells</span><span class="op">*</span><span class="fl">.20</span><span class="op">)</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># number of cells/sites in the sample</span></span>
+<span><span class="va">nsites</span> <span class="op">=</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/math-generics.html">round</a></span><span class="op">(</span><span class="va">ncells</span><span class="op">*</span><span class="fl">.20</span><span class="op">)</span></span>
 <span><span class="va">site_id</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">ncells</span>, size<span class="op">=</span><span class="va">nsites</span>, replace<span class="op">=</span><span class="cn">FALSE</span><span class="op">)</span> <span class="co"># cell id</span></span>
 <span><span class="co"># add an indicator of whether a cell is in the sample or not</span></span>
-<span><span class="va">customGrid</span><span class="op">$</span><span class="va">sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">customGrid</span><span class="op">$</span><span class="va">cellid</span><span class="op"><a href="https://rdrr.io/pkg/terra/man/match.html">%in%</a></span><span class="va">site_id</span>,<span class="fl">1</span>,<span class="fl">0</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">min_nvisits</span> <span class="op">=</span> <span class="fl">1</span> <span class="co"># minimum number of visits</span></span>
-<span><span class="va">max_nvisits</span> <span class="op">=</span> <span class="fl">5</span> <span class="co"># maximum number of visits</span></span>
-<span><span class="co"># Probabiliies of drawing 1 thru 5 visits per site</span></span>
-<span><span class="va">probs</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">/</span><span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span><span class="op">)</span>,<span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co"># Number of visits</span></span>
-<span><span class="va">nvisits</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span>,<span class="va">nsites</span>, prob <span class="op">=</span> <span class="va">probs</span>, replace <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span><span class="va">customGrid</span><span class="op">$</span><span class="va">sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">customGrid</span><span class="op">$</span><span class="va">cellid</span><span class="op"><a href="https://rspatial.github.io/terra/reference/match.html">%in%</a></span><span class="va">site_id</span>,<span class="fl">1</span>,<span class="fl">0</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<p>Define model parameters <span class="math inline">\(\alpha\)</span> , detection probabilities <span class="math inline">\(p\)</span> and observed number of occurrences per site <span class="math inline">\(y\)</span> (<a href="#fig-obs_occ">Figure&nbsp;4</a>):</p>
+<p>Then, we define model parameters <span class="math inline">\(\alpha\)</span> , detection probabilities <span class="math inline">\(p\)</span> and observed number of occurrences <span class="math inline">\(y\)</span> across <span class="math inline">\(K=3\)</span> visits per site/cell (<a href="#fig-obs_occ" class="quarto-xref">Figure&nbsp;4</a>). Additionally, a survey-level covariate <span class="math inline">\(g_2\)</span> is simulated at every surveyed cell to allow detection probabilities to vary by visit.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Observational process model coeficcients</span></span>
-<span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Number of vistis</span></span>
+<span><span class="va">K</span><span class="op">=</span> <span class="fl">3</span></span>
+<span><span class="co"># Observational process model coeficcients</span></span>
+<span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.6</span><span class="op">)</span> <span class="co"># Base line detection probability</span></span>
-<span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="co"># detection covariate effect</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="co"># detection covariate g1 effect</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0.5</span> <span class="co"># detection covariate g2 effect</span></span>
 <span></span>
-<span><span class="co"># Detection probabilities</span></span>
-<span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
-<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>,size <span class="op">=</span> <span class="va">nvisits</span>,prob <span class="op">=</span> <span class="va">p</span><span class="op">*</span><span class="va">z</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span> <span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span><span class="co"># Survey-level detection covariate g2</span></span>
+<span><span class="va">g2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/array.html">array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html">runif</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span> <span class="op">*</span> <span class="va">K</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">nsites</span>, <span class="va">K</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Detection probabilities and observed occurrences</span></span>
+<span><span class="co"># Create empty matrix to store the results</span></span>
+<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="va">p.mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,nrow <span class="op">=</span> <span class="va">nsites</span>,ncol<span class="op">=</span><span class="fl">3</span><span class="op">)</span> </span>
+<span></span>
+<span><span class="co"># loop over visits</span></span>
+<span><span class="kw">for</span><span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">K</span><span class="op">)</span><span class="op">{</span></span>
+<span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> </span>
+<span>                              <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span> <span class="op">+</span> </span>
+<span>                              <span class="va">alpha</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">*</span><span class="va">g2</span><span class="op">[</span>, <span class="va">j</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
+<span> <span class="va">y</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>,size <span class="op">=</span> <span class="fl">1</span>,prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span><span class="op">*</span><span class="va">z</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span> <span class="op">)</span></span>
+<span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<p>Create data set <a href="#tbl-t1">Table&nbsp;1</a>:</p>
+<p>Create data set <a href="#tbl-t1" class="quarto-xref">Table&nbsp;1</a>:</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># centroid of the cell</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># centroid of the cell</span></span>
 <span></span>
-<span><span class="va">Occ_data_1</span> <span class="op">&lt;-</span> <span class="va">customGrid</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span><span class="va">Occ_data_1</span> <span class="op">&lt;-</span> <span class="va">customGrid</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'sample'</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">y_counts</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y</span> , cellid <span class="op">=</span> <span class="va">site_id</span>, nvisits <span class="op">=</span> <span class="va">nvisits</span><span class="op">)</span></span>
+<span><span class="va">Obs_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y</span>, <span class="co"># detectio/non-detection data</span></span>
+<span>           g2 <span class="op">=</span> <span class="va">g2</span>, <span class="co"># survey level covariate</span></span>
+<span>           cellid <span class="op">=</span> <span class="va">site_id</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">Occ_data_1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_1</span>,<span class="va">y_counts</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
+<span><span class="va">Occ_data_1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_1</span>,<span class="va">Obs_data</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span> </span>
 <span></span>
 <span><span class="co"># append coordinates as columns</span></span>
 <span></span>
@@ -367,14 +450,31 @@ div.csl-indent {
 </details>
 </div>
 <div class="cell">
+<div id="tbl-t1" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure"><figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-t1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: First 6 entries of the occupancy data
+</figcaption><div aria-describedby="tbl-t1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="tbl-t1" class="anchored">
-<table class="table table-sm table-striped small">
-<caption>Table&nbsp;1: First 6 entries of the occupancy data</caption>
+<table class="do-not-create-environment cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 17%">
+<col style="width: 17%">
+<col style="width: 17%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
 <thead><tr class="header">
 <th style="text-align: right;">cellid</th>
-<th style="text-align: right;">y</th>
-<th style="text-align: right;">nvisits</th>
+<th style="text-align: right;">y.1</th>
+<th style="text-align: right;">y.2</th>
+<th style="text-align: right;">y.3</th>
+<th style="text-align: right;">g2.1</th>
+<th style="text-align: right;">g2.2</th>
+<th style="text-align: right;">g2.3</th>
 <th style="text-align: right;">x.loc</th>
 <th style="text-align: right;">y.loc</th>
 </tr></thead>
@@ -382,42 +482,66 @@ div.csl-indent {
 <tr class="odd">
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.5714531</td>
+<td style="text-align: right;">0.3866185</td>
+<td style="text-align: right;">-0.2529522</td>
 <td style="text-align: right;">4.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">-0.1941702</td>
+<td style="text-align: right;">-0.7073133</td>
+<td style="text-align: right;">0.4481461</td>
 <td style="text-align: right;">13.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">6</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">-0.3740240</td>
+<td style="text-align: right;">0.9385314</td>
+<td style="text-align: right;">-0.1100978</td>
 <td style="text-align: right;">16.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">7</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.3056664</td>
+<td style="text-align: right;">0.5610409</td>
+<td style="text-align: right;">0.7647462</td>
 <td style="text-align: right;">19.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">9</td>
-<td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.6081176</td>
+<td style="text-align: right;">-0.4150512</td>
+<td style="text-align: right;">0.1087413</td>
 <td style="text-align: right;">25.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">23</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.1278117</td>
+<td style="text-align: right;">-0.9585974</td>
+<td style="text-align: right;">-0.9708703</td>
 <td style="text-align: right;">67.5</td>
 <td style="text-align: right;">1.5</td>
 </tr>
@@ -425,12 +549,18 @@ div.csl-indent {
 </table>
 </div>
 </div>
+</figure>
+</div>
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-obs_occ" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-obs_occ-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Figure&nbsp;4: Number of times species was detected at sampled sites and true occupancy state.</figcaption></figure>
+<div id="fig-obs_occ" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-obs_occ-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-obs_occ-1.png" class="img-fluid figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-obs_occ-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Observed detection/non-detection records at sampled sites and true occupancy state.
+</figcaption></figure>
 </div>
 </div>
 </div>
@@ -443,7 +573,7 @@ div.csl-indent {
 \]</span></p>
 <p>where <span class="math inline">\(\pmb{\epsilon} \sim N(0,\Sigma = \sigma_{\epsilon}^2\tilde{\Sigma})\)</span> are the spatially correlated random effects with Matérn correlation function <span class="math inline">\(\tilde{\Sigma}\)</span> and <span class="math inline">\(\rho=0.7\)</span> is the autoregressive parameter (<span class="math inline">\(\sqrt{1-\rho^2}\)</span> is included so <span class="math inline">\(\omega(s_i,1)\)</span> comes from a <span class="math inline">\(N(0,\Sigma/(1-\rho^2)\)</span> stationary distribution; see <span class="citation" data-cites="cameletti2012">(<a href="#ref-cameletti2012" role="doc-biblioref">Cameletti et al. 2012</a>)</span>).</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># load helping functions</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># load helping functions</span></span>
 <span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/source.html">source</a></span><span class="op">(</span><span class="st">'spde-book-functions.R'</span><span class="op">)</span></span>
 <span></span>
@@ -477,16 +607,20 @@ div.csl-indent {
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-space_time_effect" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-space_time_effect-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5: simulated spatio-temporal Gaussian field</figcaption></figure>
+<div id="fig-space_time_effect" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-space_time_effect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-space_time_effect-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-space_time_effect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: simulated spatio-temporal Gaussian field
+</figcaption></figure>
 </div>
 </div>
 </div>
-<p>Then we can simulate the occupancy state of cell <span class="math inline">\(i\)</span> at time <span class="math inline">\(t\)</span> (<a href="#fig-space-time-occ">Figure&nbsp;6</a>) as follows:</p>
+<p>Then we can simulate the occupancy state of cell <span class="math inline">\(i\)</span> at time <span class="math inline">\(t\)</span> (<a href="#fig-space-time-occ" class="quarto-xref">Figure&nbsp;6</a>) as follows:</p>
 <span class="math display">\[\begin{align}z_{it}&amp;\sim \mathrm{Bernoulli}(\psi_{it})\nonumber\\\mathrm{logit}(\psi_{it}) &amp;= \beta_0 + \beta_1 x^2_i + \omega_{it}.\end{align}\]</span>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># State process model coeficcients</span></span>
 <span><span class="va">beta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="va">beta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">0.5</span></span>
 <span><span class="va">beta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span> <span class="fl">1</span> </span>
@@ -503,63 +637,85 @@ div.csl-indent {
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-space-time-occ" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-space-time-occ-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;6: Simulated occupancy probabilities</figcaption></figure>
+<div id="fig-space-time-occ" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-space-time-occ-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-space-time-occ-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-space-time-occ-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6: Simulated occupancy probabilities
+</figcaption></figure>
 </div>
 </div>
 </div>
-<p>Notice that we can use different locations at different times, e.g.&nbsp;when locations are not surveyed regularly. To simulate this we allow for some sites to be missing from the sample across years, by setting the minimum number of visits to zero . We also change the number of visits per year/site combination.</p>
+<p>Species detection/non-detection data at site <span class="math inline">\(i\)</span> during visits <span class="math inline">\(j\)</span> and time <span class="math inline">\(t\)</span> is simulated from:</p>
+<span class="math display">\[\begin{align}
+y_{ijt} &amp;\sim \mathrm{Bernoulli}(p_{ijt} \times z_{it})\\
+p_{ijt} &amp;= \alpha_0 + \alpha_1 g_{ijt}\\
+\end{align}\]</span>
+<p>Detection probabilities vary over space, time and survey through a simulated covariate <span class="math inline">\(g_{ijt}\)</span>. Often, locations are not surveyed regularly, resulting in unbalanced sampling scenarios. To simulate this, we introduce missing values with a constant probability for each site <span class="math inline">\(\times\)</span> time <span class="math inline">\(\times\)</span> survey combination. This missing values represent locations that were not surveyed on a given occasion.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">min_nvisits</span> <span class="op">=</span> <span class="fl">0</span> <span class="co"># minimum number of visits</span></span>
-<span><span class="va">max_nvisits</span> <span class="op">=</span> <span class="fl">5</span> <span class="co"># maximum number of visits</span></span>
-<span><span class="co"># Probabiliies of drawing 1 thru 5 visits per site</span></span>
-<span><span class="va">probs</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">/</span><span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span><span class="op">)</span>,<span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co"># Number of visits per site/year combination</span></span>
-<span><span class="va">nvisits.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="va">nsites</span><span class="op">)</span> <span class="co"># empty matrix to store the results</span></span>
-<span></span>
-<span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="va">min_nvisits</span><span class="op">:</span><span class="va">max_nvisits</span>,<span class="va">nsites</span>,</span>
-<span>                           prob <span class="op">=</span> <span class="va">probs</span>, replace <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="va">nvisits.mat</span><span class="op">[</span><span class="va">nvisits.mat</span><span class="op">==</span><span class="fl">0</span><span class="op">]</span><span class="op">=</span><span class="cn">NA</span> <span class="co"># add NA for cells that were not visited</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<p>Now we compute the observed counts as before:</p>
-<div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Observational process model coeficcients</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Max number of vistis</span></span>
+<span><span class="va">K</span><span class="op">=</span> <span class="fl">3</span></span>
+<span><span class="co"># Observational process model coeficcients</span></span>
 <span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span> <span class="co"># Base line detection probability</span></span>
 <span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1.5</span> <span class="co"># detection covariate effect</span></span>
 <span></span>
-<span><span class="va">y.mat</span> <span class="op">=</span> <span class="va">p.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="va">nsites</span><span class="op">)</span></span>
+<span><span class="co"># Survey-level detection covariate g.t</span></span>
+<span><span class="va">g.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/array.html">array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html">runif</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span> <span class="op">*</span> <span class="va">K</span> <span class="op">*</span> <span class="va">nT</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">nsites</span>, <span class="va">K</span>, <span class="va">nT</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Observed data</span></span>
+<span></span>
+<span><span class="co"># matrices to store each site x survey combination</span></span>
+<span><span class="va">y_mat</span> <span class="op">&lt;-</span> <span class="va">p_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,nrow <span class="op">=</span> <span class="va">nsites</span>,ncol<span class="op">=</span><span class="va">K</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html">colnames</a></span><span class="op">(</span><span class="va">y_mat</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">"y"</span>,<span class="fl">1</span><span class="op">:</span><span class="va">K</span>,sep<span class="op">=</span><span class="st">""</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details><div class="cell-output cell-output-stdout">
+<pre><code>logical(0)</code></pre>
+</div>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># empty list for storing  each detection at each time point</span></span>
+<span><span class="va">y.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Constant NA probability</span></span>
+<span><span class="va">missing.p</span> <span class="op">&lt;-</span> <span class="fl">0.1</span></span>
+<span></span>
+<span><span class="co"># Detection/nondetection data (i.e. observed presence/absence records)</span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="co"># Detection probabilities (constant through time)</span></span>
-<span>  <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
-<span>  <span class="co"># Observed occurrences</span></span>
-<span>  <span class="va">y.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>, size <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>,</span>
-<span>                                       prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="kw">for</span><span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">K</span><span class="op">)</span><span class="op">{</span></span>
+<span>    <span class="va">p_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> </span>
+<span>                                   <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g.t</span><span class="op">[</span>,<span class="va">j</span>,<span class="va">t</span><span class="op">]</span>,</span>
+<span>                                   inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
+<span>    <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>,</span>
+<span>                        size <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                        prob <span class="op">=</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span> <span class="op">*</span> <span class="va">p_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="va">turnNA</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span><span class="va">nsites</span>, <span class="fl">1</span>, <span class="va">missing.p</span><span class="op">)</span></span>
+<span>    <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">turnNA</span> <span class="op">==</span> <span class="fl">1</span>, <span class="cn">NA</span>, <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="va">y.t</span><span class="op">[[</span><span class="va">t</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span>  <span class="va">y_mat</span></span>
 <span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Finally, create and save data set.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># centroid of the cell</span></span>
-<span><span class="va">Occ_data_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="va">customGrid</span> <span class="op">|&gt;</span></span>
-<span>                                 <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">Obs_data.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html">do.call</a></span><span class="op">(</span><span class="st">"rbind"</span>,<span class="va">y.t</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_cols.html">bind_cols</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html">apply</a></span><span class="op">(</span><span class="va">g.t</span>,<span class="fl">2L</span>,<span class="va">c</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html">colnames</a></span><span class="op">(</span><span class="va">Obs_data.t</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">"y"</span>,<span class="fl">1</span><span class="op">:</span><span class="va">K</span>,sep<span class="op">=</span><span class="st">""</span><span class="op">)</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">"g"</span>,<span class="fl">1</span><span class="op">:</span><span class="va">K</span>,sep<span class="op">=</span><span class="st">""</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">Obs_data.t</span> <span class="op">&lt;-</span> <span class="va">Obs_data.t</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>cellid<span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="va">site_id</span>,<span class="va">nT</span><span class="op">)</span>,time<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,each<span class="op">=</span><span class="va">nsites</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># centroid of the cell</span></span>
+<span><span class="va">Occ_data_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="va">customGrid</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>                                 <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'sample'</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span></span>
-<span><span class="va">y_data</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y.mat</span> , cellid <span class="op">=</span> <span class="va">site_id</span>, nvisits <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">Occ_data_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_2</span>,<span class="va">y_data</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
+<span><span class="va">Occ_data_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_2</span>,<span class="va">Obs_data.t</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># append coordinates as columns</span></span>
 <span><span class="va">Occ_data_2</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'x.loc'</span>,<span class="st">'y.loc'</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">Occ_data_2</span><span class="op">)</span></span>
 <span><span class="va">Occ_data_2</span> <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_geometry.html">st_drop_geometry</a></span><span class="op">(</span><span class="va">Occ_data_2</span><span class="op">)</span></span>
+<span></span>
 <span><span class="co"># Save CSV file for analysis</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html">write.csv</a></span><span class="op">(</span><span class="va">Occ_data_2</span>,file<span class="op">=</span><span class="st">'Occ_data_2.csv'</span>,row.names <span class="op">=</span> <span class="cn">F</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
@@ -568,7 +724,7 @@ div.csl-indent {
 <span class="header-section-number">4</span> Spatially varying coefficients (SVC)</h1>
 <p>Here we simulate from a spatially varying coefficient model by adopting a space model with Matérn spatial covariance and a AR(1) time component. The same setting described for the space-time model will be used to drawn independent realization from the random field by using the <code>book.rMatern()</code>function. Then, temporal autocorrelation will be introduced to the dynamic regression coefficient <span class="math inline">\(\beta_t\)</span> through the AR(1) structure described in the previous section (Note: The term <span class="math inline">\((1 - \rho^2)\)</span> is added because of INLA internal AR(1) model parametrization; <span class="citation" data-cites="krainski2018">(<a href="#ref-krainski2018" role="doc-biblioref">Krainski et al. 2018</a>)</span>).</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># realization of the random field</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># realization of the random field</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="va">seed</span><span class="op">)</span></span>
 <span><span class="va">beta_1</span> <span class="op">&lt;-</span> <span class="fu">book.rMatern</span><span class="op">(</span><span class="va">nT</span>, <span class="va">coord_grid</span>, range <span class="op">=</span> <span class="va">range_spde</span>,</span>
 <span>                      sigma <span class="op">=</span> <span class="va">sigma_spde</span><span class="op">)</span></span>
@@ -582,21 +738,20 @@ div.csl-indent {
 <span><span class="op">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<p>Occupancy probabilities (<a href="#fig-svc">Figure&nbsp;7</a>) are then defined on the logit scale as:</p>
+<p>Occupancy probabilities (<a href="#fig-svc" class="quarto-xref">Figure&nbsp;7</a>) are then defined on the logit scale as:</p>
 <p><span class="math display">\[
 \mathrm{logit}(\psi_{it}) = \beta_0 + \beta_{1}(i)t + \omega(i)
 \]</span></p>
-<p>where <span class="math inline">\(\omega(i)\)</span> is the same field defined for the simple spatial occupancy model (<a href="#sec-SSOM">Section&nbsp;2</a>). The detection probabilities and observed occurrences are simulated in the same way as before (see <a href="#sec-STOM">Section&nbsp;3</a>).</p>
+<p>where <span class="math inline">\(\omega(i)\)</span> is the same field defined for the simple spatial occupancy model (<a href="#sec-SSOM" class="quarto-xref">Section&nbsp;2</a>). The detection probabilities and observed occurrences are simulated in the same way as in <a href="#sec-STOM" class="quarto-xref">Section&nbsp;3</a>.</p>
 <div class="cell">
-<details><summary>Code</summary><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#|</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="va">seed</span><span class="op">)</span></span>
+<details class="code-fold"><summary>Code</summary><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="va">seed</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># intercept and mean of the effect</span></span>
 <span><span class="va">beta0</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1</span></span>
 <span></span>
 <span><span class="va">z.mat</span> <span class="op">=</span> <span class="va">psi.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html">dim</a></span><span class="op">(</span><span class="va">coord_grid</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">scale_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/terra/man/scale.html">scale</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">scale_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/scale.html">scale</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="co"># Occupancy probabilities</span></span>
@@ -606,38 +761,63 @@ div.csl-indent {
 <span><span class="op">}</span></span>
 <span></span>
 <span></span>
+<span><span class="co"># Max number of vistis</span></span>
+<span><span class="va">K</span><span class="op">=</span> <span class="fl">3</span></span>
 <span><span class="co"># Observational process model coeficcients</span></span>
 <span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="cn">NA</span>,<span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html">qlogis</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span> <span class="co"># Base line detection probability</span></span>
-<span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1</span> <span class="co"># detection covariate effect</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1.5</span> <span class="co"># detection covariate effect</span></span>
 <span></span>
-<span><span class="va">y.mat</span> <span class="op">=</span> <span class="va">p.mat</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,ncol<span class="op">=</span><span class="va">nT</span>,nrow<span class="op">=</span><span class="va">nsites</span><span class="op">)</span></span>
+<span><span class="co"># Survey-level detection covariate g2</span></span>
+<span><span class="va">g.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/array.html">array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html">runif</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span> <span class="op">*</span> <span class="va">K</span> <span class="op">*</span> <span class="va">nT</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">nsites</span>, <span class="va">K</span>, <span class="va">nT</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
+<span></span>
+<span><span class="co"># matrices to store each site x survey combination</span></span>
+<span><span class="va">y_mat</span> <span class="op">&lt;-</span> <span class="va">p_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="cn">NA</span>,nrow <span class="op">=</span> <span class="va">nsites</span>,ncol<span class="op">=</span><span class="va">K</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># empty list for storing  each detection at each time point</span></span>
+<span><span class="va">y.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Constant NA probability</span></span>
+<span><span class="va">missing.p</span> <span class="op">&lt;-</span> <span class="fl">0.1</span></span>
+<span></span>
+<span><span class="co"># Detection/nondetection data (i.e. observed presence/absence records)</span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">nT</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="co"># Detection probabilities (constant through time)</span></span>
-<span>  <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g_s</span><span class="op">[</span><span class="va">site_id</span><span class="op">]</span>, inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
-<span>  <span class="co"># Observed occurrences</span></span>
-<span>  <span class="va">y.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>, size <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span>,</span>
-<span>                                       prob <span class="op">=</span> <span class="va">p.mat</span><span class="op">[</span>,<span class="va">t</span><span class="op">]</span><span class="op">*</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="kw">for</span><span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">K</span><span class="op">)</span><span class="op">{</span></span>
+<span>    <span class="va">p_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/INLA/man/link-functions.html">inla.link.logit</a></span><span class="op">(</span><span class="va">alpha</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> </span>
+<span>                                   <span class="va">alpha</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">g.t</span><span class="op">[</span>,<span class="va">j</span>,<span class="va">t</span><span class="op">]</span>,</span>
+<span>                                   inverse <span class="op">=</span> <span class="cn">T</span><span class="op">)</span></span>
+<span>    <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">nsites</span>,</span>
+<span>                        size <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                        prob <span class="op">=</span> <span class="va">z.mat</span><span class="op">[</span><span class="va">site_id</span>,<span class="va">t</span><span class="op">]</span> <span class="op">*</span> <span class="va">p_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="va">turnNA</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html">rbinom</a></span><span class="op">(</span><span class="va">nsites</span>, <span class="fl">1</span>, <span class="va">missing.p</span><span class="op">)</span></span>
+<span>    <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">turnNA</span> <span class="op">==</span> <span class="fl">1</span>, <span class="cn">NA</span>, <span class="va">y_mat</span><span class="op">[</span>,<span class="va">j</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="va">y.t</span><span class="op">[[</span><span class="va">t</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span>  <span class="va">y_mat</span></span>
 <span><span class="op">}</span></span>
 <span></span>
+<span></span>
+<span><span class="va">Obs_data.t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html">do.call</a></span><span class="op">(</span><span class="st">"rbind"</span>,<span class="va">y.t</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_cols.html">bind_cols</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html">apply</a></span><span class="op">(</span><span class="va">g.t</span>,<span class="fl">2L</span>,<span class="va">c</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html">colnames</a></span><span class="op">(</span><span class="va">Obs_data.t</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">"y"</span>,<span class="fl">1</span><span class="op">:</span><span class="va">K</span>,sep<span class="op">=</span><span class="st">""</span><span class="op">)</span>,<span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste</a></span><span class="op">(</span><span class="st">"g"</span>,<span class="fl">1</span><span class="op">:</span><span class="va">K</span>,sep<span class="op">=</span><span class="st">""</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">Obs_data.t</span> <span class="op">&lt;-</span> <span class="va">Obs_data.t</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>cellid<span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="va">site_id</span>,<span class="va">nT</span><span class="op">)</span>,time<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nT</span>,each<span class="op">=</span><span class="va">nsites</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span></span>
 <span><span class="co"># centroid of the cell</span></span>
-<span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="va">customGrid</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html">suppressWarnings</a></span><span class="op">(</span><span class="va">customGrid</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>                                 <span class="fu"><a href="https://r-spatial.github.io/sf/reference/geos_unary.html">st_centroid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">sample</span><span class="op">==</span><span class="fl">1</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'sample'</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># data </span></span>
 <span></span>
-<span><span class="va">y_data</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y.mat</span> , cellid <span class="op">=</span> <span class="va">site_id</span>, nvisits <span class="op">=</span> <span class="va">nvisits.mat</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_3</span>,<span class="va">y_data</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
-<span></span>
-<span></span>
+<span><span class="va">Occ_data_3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">Occ_data_3</span>,<span class="va">Obs_data.t</span>,by <span class="op">=</span> <span class="st">"cellid"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># append coordinates as columns</span></span>
 <span><span class="va">Occ_data_3</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">'x.loc'</span>,<span class="st">'y.loc'</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_coordinates.html">st_coordinates</a></span><span class="op">(</span><span class="va">Occ_data_3</span><span class="op">)</span></span>
 <span><span class="va">Occ_data_3</span> <span class="op">=</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_geometry.html">st_drop_geometry</a></span><span class="op">(</span><span class="va">Occ_data_3</span><span class="op">)</span></span>
+<span></span>
 <span></span>
 <span><span class="co"># Save CSV file for analysis</span></span>
 <span></span>
@@ -646,16 +826,20 @@ div.csl-indent {
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-svc" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="projects_files/figure-html/fig-svc-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;7: Simulated occupancy probabilities from a SVC model</figcaption></figure>
+<div id="fig-svc" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-svc-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="projects_files/figure-html/fig-svc-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-svc-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7: Simulated occupancy probabilities from a SVC model
+</figcaption></figure>
 </div>
 </div>
 </div>
 
 
 
-</section><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+</section><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
 <div id="ref-cameletti2012" class="csl-entry" role="listitem">
 Cameletti, Michela, Finn Lindgren, Daniel Simpson, and Håvard Rue. 2012. <span>“Spatio-Temporal Modeling of Particulate Matter Concentration Through the SPDE Approach.”</span> <em>AStA Advances in Statistical Analysis</em> 97 (2): 109–31. <a href="https://doi.org/10.1007/s10182-012-0196-3">https://doi.org/10.1007/s10182-012-0196-3</a>.
 </div>
@@ -795,10 +979,27 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   if (showAllCode) {
     showAllCode.addEventListener("click", toggleCodeHandler(true));
   }
-  function tippyHover(el, contentFn) {
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
-      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -808,8 +1009,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start'
+      placement: 'bottom-start',
     };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -821,7 +1031,130 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
     });
   }
       let selectedAnnoteEl;
@@ -865,6 +1198,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
+            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -890,6 +1224,32 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
       // Attach click handler to the DT
       const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
       for (const annoteDlNode of annoteDls) {
@@ -957,7 +1317,9 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     <div class="nav-footer-center">
       &nbsp;
     </div>
-    <div class="nav-footer-right">Built with <a href="https://quarto.org/">Quarto</a></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org/">Quarto</a></p>
+</div>
   </div>
 </footer>
 
