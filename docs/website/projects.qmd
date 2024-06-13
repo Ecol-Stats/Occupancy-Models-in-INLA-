@@ -3,6 +3,7 @@ title: "Data Simulation"
 number-sections: true
 execute: 
   eval: true
+  
 format:
   html: 
     code-link: true
@@ -18,6 +19,23 @@ bibliography: references.bib
 
 This section describes the steps to simulate occurrence data for fitting spatially explicit occupancy models in [R-INLA](https://www.r-inla.org/).
 
+::: {.callout-caution collapse="false"}
+Make sure you have that latest `R` and `R-INLA` versions installed:
+
+-   `R` version `4.4.0` or above
+
+-   `R-INLA` version `INLA_24.06.04` or above. For latest testing version use:
+
+    ```{r}
+    #| eval: false
+    #| code-fold: false
+
+    install.packages("INLA",
+            repos=c(getOption("repos"),
+            INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
+    ```
+:::
+
 # Set up {#set_up}
 
 ```{r}
@@ -28,11 +46,11 @@ This section describes the steps to simulate occurrence data for fitting spatial
 library(INLA)
 library(inlabru)
 library(fmesher)
+library(tidyverse)
 library(spatstat)
 library(sf)
 library(terra)
 library(ggplot2)
-library(tidyverse)
 library(gt)
 library(dplyr)
 library(viridis)
@@ -42,7 +60,7 @@ library(patchwork)
 
 ```
 
-Define the spatial domain and the regular lattice by setting a $300 \times 300$ study area divided into $5\times5$ grid cells.
+Define the spatial domain and the regular lattice by setting a $300 \times 300$ study area divided into $3\times3$ grid cells.
 
 ```{r}
 # Define spatial domain
@@ -87,7 +105,7 @@ We simulate three different Gaussian Markov Random fields (GMRF) using the `inla
 
 
 # Spatial boundary
-boundary_sf = st_bbox(c(xmin = 0, xmax = 300, ymax = 0, ymin = 300)) |>
+boundary_sf = st_bbox(c(xmin = 0, xmax = 300, ymax = 0, ymin = 300)) %>%
   st_as_sfc()
 
 # Create a fine mesh
@@ -112,14 +130,13 @@ sim_field = inla.qsample(n = 3, Q = Q, seed = seed)
 
 ```
 
-Create the projector matrix `A_proj` using the centroid of each grid cell as coordinates and compute the spatial random effect $\omega(s)$, spatial environmental covariate $x(s)$ and spatial detection covariate $g(s)$ (@fig-spatial_components). (Note: Covariates $x(s)$ and $g(s)$ are stored as raster data).
+Create the projector matrix `A_proj` using the centroid of each grid cell as coordinates and compute the spatial random effect $\omega(s)$, spatial environmental covariate $x(s)$ and spatial detection covariate $g_1(s)$ (@fig-spatial_components). (Note: Covariates $x(s)$ and $g_1(s)$ are assumed to be known and are stored as raster data).
 
 ```{r}
 #| warning: false
 
-
 # Obtain the centroid of each cell
-coord_grid  = st_coordinates(customGrid |> st_centroid())
+coord_grid  = st_coordinates(customGrid %>% st_centroid())
 # A matrix
 A_proj = inla.spde.make.A(mesh_sim, loc = coord_grid)
 
@@ -145,22 +162,24 @@ writeRaster(g_rast,filename = paste('raster data','g_covariat.tif',sep='/'),over
 #| fig-height: 4
 #| fig-width: 10
 #| label: fig-spatial_components
-#| fig-cap: Simulated  spatial environmental  and detection covariates and spatial random field.
+#| fig-cap: Simulated  environmental and detection spatial covariates, and spatial occupancy random field.
 
-ggplot() + tidyterra::geom_spatraster(data=x_rast) +scale_fill_viridis(name=expression(x(s))) + ggtitle('environmental covariate') +
- ggplot() + tidyterra::geom_spatraster(data=g_rast) +scale_fill_viridis(option='magma',name=expression(g(s))) + ggtitle('detection covariate')+
-   ggplot() + tidyterra::geom_spatraster(data= rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],omega_s))) +scale_fill_scico(name=expression(omega(s)))+ ggtitle('spatial field')
+ggplot() + tidyterra::geom_spatraster(data=x_rast) +scale_fill_viridis(name=expression(x(s))) + ggtitle('environmental covariate') + coord_equal() +
+ ggplot() + tidyterra::geom_spatraster(data=g_rast) +scale_fill_viridis(option='magma',name=expression(g(s))) + ggtitle('detection covariate')+ coord_equal() +
+   ggplot() + tidyterra::geom_spatraster(data= rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],omega_s))) +scale_fill_scico(name=expression(omega(s)))+ ggtitle('spatial field') + coord_equal() 
 ```
 
 Occurrence data is simulated from the following occupancy model:
 
 ```{=tex}
-\begin{align}  \mbox{State process:}& \begin{cases} z_i  \sim \mathrm{Bernoulli}(\psi_i) \nonumber \\\mathrm{logit}(\psi_i) = \beta_0 + \beta_1 \ x(s) + \omega(s) \\
+\begin{align}  \mbox{State process:}& \begin{cases} z_i  \sim \mathrm{Bernoulli}(\psi_i) \nonumber \\\mathrm{logit}(\psi_i) = \beta_0 + \beta_1 \ x_i(s) + \omega_i(s) \\
 \end{cases}\\
- \mbox{ Observational process:}& \begin{cases} y_i \sim \mathrm{Binomial}(K_i,z_i \times p_i) \nonumber \\\mathrm{logit}(p_i) = \alpha_0 + \alpha_1 \ g(s) \\
+ \mbox{ Observational process:}& \begin{cases} y_{ij} \sim \mathrm{Bernoulli}(z_i \times p_{ij}) \nonumber \\\mathrm{logit}(p_{ij}) = \alpha_0 + \alpha_1 \ g_{1i}(s)  + \alpha_2 \ g_{2ij}\\
 \end{cases}
 \end{align}
 ```
+Here, $g_{2}$ is a survey-level covariate that allows detection probabilities to vary between visits/surveys ( see @sec-obs_model for simulation details).
+
 ## State process model sub-component
 
 Define model parameters $\beta$ and compute the occupancy probabilities $\psi$ and occupancy states $z$ (@fig-occ-state)
@@ -192,14 +211,14 @@ plot_data$psi = psi
 ggplot() + geom_sf(data= plot_data,aes(fill=psi))+ scale_fill_scico(palette = 'roma',name='Occupancy \n probabilities')+theme(legend.position = 'top')+
 ggplot() +  geom_sf(data= plot_data,aes(fill=factor(z))) + scale_fill_viridis_d(name='Occupancy \n state',label=c('Absence','Presence'))+theme(legend.position = 'top')
 
- rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],psi)) |>
+ rast(data.frame(x = coord_grid[,1], y = coord_grid[,2],psi)) %>%
 writeRaster(filename = paste('raster data','true_occ_probs.tif',sep='/'),
             overwrite=TRUE)
 ```
 
-## Observational process model sub-component
+## Observational process model sub-component {#sec-obs_model}
 
-Random sample of 20 % of the total cells and draw a random number of $K$ visits per cell by setting a minimum of 1 and a maximum of 5 visits per site/cell.
+Firs, a random sample of 20 % of the total cells is obtained.
 
 ```{r}
 
@@ -209,25 +228,34 @@ site_id = sample(1:ncells, size=nsites, replace=FALSE) # cell id
 # add an indicator of whether a cell is in the sample or not
 customGrid$sample <- ifelse(customGrid$cellid%in%site_id,1,0)
 
-min_nvisits = 1 # minimum number of visits
-max_nvisits = 5 # maximum number of visits
-# Probabiliies of drawing 1 thru 5 visits per site
-probs = rep(1/length(min_nvisits:max_nvisits),length(min_nvisits:max_nvisits))
-# Number of visits
-nvisits = sample(min_nvisits:max_nvisits,nsites, prob = probs, replace = T)
 ```
 
-Define model parameters $\alpha$ , detection probabilities $p$ and observed number of occurrences per site $y$ (@fig-obs_occ):
+Then, we define model parameters $\alpha$ , detection probabilities $p$ and observed number of occurrences $y$ across $K=3$ visits per site/cell (@fig-obs_occ). Additionally, a survey-level covariate $g_2$ is simulated at every surveyed cell to allow detection probabilities to vary by visit.
 
 ```{r}
+# Number of vistis
+K= 3
 # Observational process model coeficcients
-alpha <- c(NA,NA)
+alpha <- c(NA,NA,NA)
 alpha[1] <- qlogis(0.6) # Base line detection probability
-alpha[2] <- 1 # detection covariate effect
+alpha[2] <- 1 # detection covariate g1 effect
+alpha[3] <- 0.5 # detection covariate g2 effect
 
-# Detection probabilities
-p <- inla.link.logit(alpha[1] + alpha[2]*g_s[site_id], inverse = T)
-y <- rbinom(n = nsites,size = nvisits,prob = p*z[site_id] )
+# Survey-level detection covariate g2
+g2 <- array(runif(n = nsites * K, -1, 1), dim = c(nsites, K))
+
+# Detection probabilities and observed occurrences
+# Create empty matrix to store the results
+y <- p.mat <- matrix(NA,nrow = nsites,ncol=3) 
+
+# loop over visits
+for(j in 1:K){
+ p.mat[,j] <- inla.link.logit(alpha[1] + 
+                              alpha[2]*g_s[site_id] + 
+                              alpha[3]*g2[, j], inverse = T)
+ y[,j] <- rbinom(n = nsites,size = 1,prob = p.mat[,j]*z[site_id] )
+}
+
 
 ```
 
@@ -237,14 +265,16 @@ Create data set @tbl-t1:
 #| warning: false
 # centroid of the cell
 
-Occ_data_1 <- customGrid |>
-  st_centroid() |>
-  filter(sample==1) |>
+Occ_data_1 <- customGrid %>%
+  st_centroid() %>%
+  filter(sample==1) %>%
   dplyr::select(-c('sample'))
 
-y_counts = data.frame(y = y , cellid = site_id, nvisits = nvisits)
+Obs_data <- data.frame(y = y, # detectio/non-detection data
+           g2 = g2, # survey level covariate
+           cellid = site_id)
 
-Occ_data_1 <- left_join(Occ_data_1,y_counts,by = "cellid")
+Occ_data_1 <- left_join(Occ_data_1,Obs_data,by = "cellid") 
 
 # append coordinates as columns
 
@@ -260,8 +290,8 @@ write.csv(Occ_data_1,file='Occ_data_1.csv',row.names = F)
 #| label: tbl-t1
 #| tbl-cap: First 6 entries of the occupancy data
 
-Occ_data_1 |>
-  head(n=6) |>
+Occ_data_1 %>%
+  head(n=6) %>%
  knitr:: kable()
 
 ```
@@ -269,7 +299,7 @@ Occ_data_1 |>
 ```{r}
 #| echo: false
 #| label: fig-obs_occ
-#| fig-cap: Number of times species was detected at sampled sites and true occupancy state.
+#| fig-cap: Observed detection/non-detection records at sampled sites and true occupancy state.
 #| fig-height: 5
 #| fig-width: 5
 
@@ -280,16 +310,28 @@ plot_data$gs =g_s
 # ggplot() + #geom_sf(data= plot_data,aes(fill=g_s),alpha=0.2) +
 #   #scale_fill_viridis(option='magma',name=expression(g(s))) +
 #   #ggnewscale::new_scale_fill() +
-#   geom_sf(data= plot_data|> filter(sample==1),aes(fill=as.factor(prop))) + scale_fill_scico_d(palette = 'imola')
+#   geom_sf(data= plot_data%>% filter(sample==1),aes(fill=as.factor(prop))) + scale_fill_scico_d(palette = 'imola')
 # #(palette = 'imola',direction = -1,name='Counts')
 
- Occ_data1_plot = Occ_data_1 |>
-  st_as_sf(coords = c('x.loc','y.loc'))
+ Occ_data1_plot = Occ_data_1 %>%
+  st_as_sf(coords = c('x.loc','y.loc')) %>% 
+   mutate(Max.Occ= purrr::pmap_dbl(list(y.1, y.2,y.3), max,na.rm=T)) 
 
 ggplot() + geom_sf(data= plot_data,aes(fill=factor(z)),alpha=0.65) +
-  scale_fill_manual(name='Occupancy \n state',label=c('Absence','Presence'),values=c("black","#C4961A"))+
-  geom_sf(data=Occ_data1_plot,aes(color=y),size=0.8) +
-  scale_color_scico( name="Observed \n counts",palette = "lajolla")
+  scale_fill_manual(name='Occupancy \nstate',label=c('Absence','Presence'),
+                    values=c("black","#C4961A"))+
+  geom_sf(data=Occ_data1_plot,aes(color=factor(Max.Occ),
+                                  shape=factor(Max.Occ),
+                                  size=factor(Max.Occ))) +
+  scale_color_manual( name="Observed \noccurrences",
+                      values = c("black","darkred"),
+                      label=c('Undetected','Detected'))+
+  scale_shape_manual(name="Observed \noccurrences",
+                     values = c(4,19),
+                     label=c('Undetected','Detected'))+
+  scale_size_manual(name="Observed \noccurrences",
+                    values = c(1.25,0.8),
+                    label=c('Undetected','Detected'))
 
 ```
 
@@ -397,48 +439,57 @@ ggplot() + tidyterra::geom_spatraster(data=spatio_temp_psi) +
    facet_wrap(~lyr, ncol = 3) + scale_fill_scico(name=expression(psi(i,t)),palette = 'roma',direction = -1)
 
 
-spatio_temp_psi |>
+spatio_temp_psi %>%
 writeRaster(filename = paste('raster data','spatsat_occ_probs.tif',sep='/'),
             overwrite=TRUE)
 ```
 
-Notice that we can use different locations at different times, e.g. when locations are not surveyed regularly. To simulate this we allow for some sites to be missing from the sample across years, by setting the minimum number of visits to zero . We also change the number of visits per year/site combination.
+Species detection/non-detection data at site $i$ during visits $j$ and time $t$ is simulated from:
 
-```{r}
-
-min_nvisits = 0 # minimum number of visits
-max_nvisits = 5 # maximum number of visits
-# Probabiliies of drawing 1 thru 5 visits per site
-probs = rep(1/length(min_nvisits:max_nvisits),length(min_nvisits:max_nvisits))
-# Number of visits per site/year combination
-nvisits.mat = matrix(NA,ncol=nT,nrow=nsites) # empty matrix to store the results
-
-for(t in 1:nT){
-  nvisits.mat[,t] = sample(min_nvisits:max_nvisits,nsites,
-                           prob = probs, replace = T)
-}
-
-nvisits.mat[nvisits.mat==0]=NA # add NA for cells that were not visited
-
+```{=tex}
+\begin{align}
+y_{ijt} &\sim \mathrm{Bernoulli}(p_{ijt} \times z_{it})\\
+p_{ijt} &= \alpha_0 + \alpha_1 g_{ijt}\\
+\end{align}
 ```
-
-Now we compute the observed counts as before:
+Detection probabilities vary over space, time and survey through a simulated covariate $g_{ijt}$. Often, locations are not surveyed regularly, resulting in unbalanced sampling scenarios. To simulate this, we introduce missing values with a constant probability for each site $\times$ time $\times$ survey combination. This missing values represent locations that were not surveyed on a given occasion.
 
 ```{r}
 
+# Max number of vistis
+K= 3
 # Observational process model coeficcients
 alpha <- c(NA,NA)
 alpha[1] <- qlogis(0.3) # Base line detection probability
 alpha[2] <- -1.5 # detection covariate effect
 
-y.mat = p.mat = matrix(NA,ncol=nT,nrow=nsites)
+# Survey-level detection covariate g.t
+g.t <- array(runif(n = nsites * K * nT, -1, 1), dim = c(nsites, K, nT))
 
+# Observed data
+
+# matrices to store each site x survey combination
+y_mat <- p_mat <- matrix(NA,nrow = nsites,ncol=K)
+colnames(y_mat) < paste("y",1:K,sep="")
+# empty list for storing  each detection at each time point
+y.t <- list()
+
+# Constant NA probability
+missing.p <- 0.1
+
+# Detection/nondetection data (i.e. observed presence/absence records)
 for(t in 1:nT){
-  # Detection probabilities (constant through time)
-  p.mat[,t] = inla.link.logit(alpha[1] + alpha[2]*g_s[site_id], inverse = T)
-  # Observed occurrences
-  y.mat[,t] <- suppressWarnings(rbinom(n = nsites, size = nvisits.mat[,t],
-                                       prob = p.mat[,t]* z.mat[site_id,t]))
+  for(j in 1:K){
+    p_mat[,j] <- inla.link.logit(alpha[1] + 
+                                   alpha[2]*g.t[,j,t],
+                                   inverse = T)
+    y_mat[,j] <- rbinom(n = nsites,
+                        size = 1,
+                        prob = z.mat[site_id,t] * p_mat[,j])
+    turnNA <- rbinom(nsites, 1, missing.p)
+    y_mat[,j] <- ifelse(turnNA == 1, NA, y_mat[,j])
+  }
+  y.t[[t]] <-  y_mat
 }
 
 
@@ -447,21 +498,30 @@ for(t in 1:nT){
 Finally, create and save data set.
 
 ```{r}
+#| message: false
+#| warning: false
+
+
+Obs_data.t <- do.call("rbind",y.t) %>% data.frame() %>%
+  bind_cols(apply(g.t,2L,c))
+colnames(Obs_data.t) <- c(paste("y",1:K,sep=""),paste("g",1:K,sep=""))
+
+Obs_data.t <- Obs_data.t %>%
+  mutate(cellid= rep(site_id,nT),time=rep(1:nT,each=nsites))
 
 # centroid of the cell
-Occ_data_2 <- suppressWarnings(customGrid |>
-                                 st_centroid()) |>
-  filter(sample==1) |>
+Occ_data_2 <- suppressWarnings(customGrid %>%
+                                 st_centroid()) %>%
+  filter(sample==1) %>%
   dplyr::select(-c('sample'))
 
 
-y_data = data.frame(y = y.mat , cellid = site_id, nvisits = nvisits.mat)
-
-Occ_data_2 <- left_join(Occ_data_2,y_data,by = "cellid")
+Occ_data_2 <- left_join(Occ_data_2,Obs_data.t,by = "cellid")
 
 # append coordinates as columns
 Occ_data_2[,c('x.loc','y.loc')] <- st_coordinates(Occ_data_2)
 Occ_data_2 = st_drop_geometry(Occ_data_2)
+
 # Save CSV file for analysis
 write.csv(Occ_data_2,file='Occ_data_2.csv',row.names = F)
 
@@ -494,11 +554,11 @@ $$
 \mathrm{logit}(\psi_{it}) = \beta_0 + \beta_{1}(i)t + \omega(i)
 $$
 
-where $\omega(i)$ is the same field defined for the simple spatial occupancy model (@sec-SSOM). The detection probabilities and observed occurrences are simulated in the same way as before (see @sec-STOM).
+where $\omega(i)$ is the same field defined for the simple spatial occupancy model (@sec-SSOM). The detection probabilities and observed occurrences are simulated in the same way as in @sec-STOM.
 
 ```{r}
 #| warning: false
-#|
+#| message: false
 set.seed(seed)
 
 # intercept and mean of the effect
@@ -516,38 +576,63 @@ for(t in 1:nT){
 }
 
 
+# Max number of vistis
+K= 3
 # Observational process model coeficcients
 alpha <- c(NA,NA)
 alpha[1] <- qlogis(0.3) # Base line detection probability
-alpha[2] <- -1 # detection covariate effect
+alpha[2] <- -1.5 # detection covariate effect
 
-y.mat = p.mat = matrix(NA,ncol=nT,nrow=nsites)
+# Survey-level detection covariate g2
+g.t <- array(runif(n = nsites * K * nT, -1, 1), dim = c(nsites, K, nT))
 
+
+# matrices to store each site x survey combination
+y_mat <- p_mat <- matrix(NA,nrow = nsites,ncol=K)
+
+# empty list for storing  each detection at each time point
+y.t <- list()
+
+# Constant NA probability
+missing.p <- 0.1
+
+# Detection/nondetection data (i.e. observed presence/absence records)
 for(t in 1:nT){
-  # Detection probabilities (constant through time)
-  p.mat[,t] = inla.link.logit(alpha[1] + alpha[2]*g_s[site_id], inverse = T)
-  # Observed occurrences
-  y.mat[,t] <- suppressWarnings(rbinom(n = nsites, size = nvisits.mat[,t],
-                                       prob = p.mat[,t]* z.mat[site_id,t]))
+  for(j in 1:K){
+    p_mat[,j] <- inla.link.logit(alpha[1] + 
+                                   alpha[2]*g.t[,j,t],
+                                   inverse = T)
+    y_mat[,j] <- rbinom(n = nsites,
+                        size = 1,
+                        prob = z.mat[site_id,t] * p_mat[,j])
+    turnNA <- rbinom(nsites, 1, missing.p)
+    y_mat[,j] <- ifelse(turnNA == 1, NA, y_mat[,j])
+  }
+  y.t[[t]] <-  y_mat
 }
 
+
+Obs_data.t <- do.call("rbind",y.t) %>% data.frame() %>%
+  bind_cols(apply(g.t,2L,c))
+colnames(Obs_data.t) <- c(paste("y",1:K,sep=""),paste("g",1:K,sep=""))
+
+Obs_data.t <- Obs_data.t %>%
+  mutate(cellid= rep(site_id,nT),time=rep(1:nT,each=nsites))
+
+
 # centroid of the cell
-Occ_data_3 <- customGrid |>
-  st_centroid() |>
-  filter(sample==1) |>
+Occ_data_3 <- suppressWarnings(customGrid %>%
+                                 st_centroid()) %>%
+  filter(sample==1) %>%
   dplyr::select(-c('sample'))
 
-# data 
 
-y_data = data.frame(y = y.mat , cellid = site_id, nvisits = nvisits.mat)
-
-Occ_data_3 <- left_join(Occ_data_3,y_data,by = "cellid")
-
-
+Occ_data_3 <- left_join(Occ_data_3,Obs_data.t,by = "cellid")
 
 # append coordinates as columns
 Occ_data_3[,c('x.loc','y.loc')] <- st_coordinates(Occ_data_3)
 Occ_data_3 = st_drop_geometry(Occ_data_3)
+
 
 # Save CSV file for analysis
 
@@ -590,7 +675,7 @@ ggplot() + tidyterra::geom_spatraster(data=spatio_svc) +
 
 
 
-spatio_svc |>
+spatio_svc %>%
 writeRaster(filename = paste('raster data','spatio_svc_probs.tif',sep='/'),
             overwrite=TRUE)
 ```
