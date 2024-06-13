@@ -1032,22 +1032,28 @@ model_spat <- inla(formula_spat, #the formula
 
 # A.local argument (testing version)
 
-To define a separable space time model the projector matrix **A** of dimensions $[(M\times nT) \times (N \times nT)]$ (i.e. for $nT$ times points, $M$ sites, and $N$ mesh nodes) needs to be specified by using the `group` argument which recieves the time index (i.e the different time points) for each observation in the dataset.
+::: callout-warning
+This type of model, at the moment, have to be implemented using the "stack" options. We are working on this!
+:::
+
+<!-- To define a separable space time model the projector matrix **A** of dimensions $[(M\times nT) \times (N \times nT)]$ (i.e. for $nT$ times points, $M$ sites, and $N$ mesh nodes) needs to be specified by using the `group` argument which recieves the time index (i.e the different time points) for each observation in the dataset. -->
 
 ```{r}
 #| code-fold: false
 #| eval: false
+#| echo: false
 A_sp <- inla.spde.make.A(mesh = mesh,
                          loc = as.matrix(spat_data[,c("x.loc","y.loc")]),
                          group = spat_data$time)
 
 ```
 
-Since we are not building a data stack, we can create a list containing the data we need to fit the model:
+<!-- Since we are not building a data stack, we can create a list containing the data we need to fit the model: -->
 
 ```{r}
 #| code-fold: false
 #| eval: false
+#| echo: false
 
 # Detection /non-detection data
 Y_mat <- spat_data %>%
@@ -1074,11 +1080,12 @@ data_list$Y <- Y_mat
 data_list$X <- X_det
 ```
 
-Next we specify the prior for the temporal autoregressive parameter and the model formula:
+<!-- Next we specify the prior for the temporal autoregressive parameter and the model formula: -->
 
 ```{r}
 #| code-fold: false
 #| eval: false
+#| echo: false
 # PC prior for the temporal autocorrelation
 h.spec <- list(rho = list(prior = 'pc.cor0', param = c(0.5, 0.3)))
 
@@ -1095,15 +1102,18 @@ formula_spat <- inla.mdata(Y,X) ~ -1 + Int_occ +
     control.group = list(model = 'ar1',hyper = h.spec))
 ```
 
-::: {.callout-note collapse="true"}
-Notice that we have used the `values` argument when defining the `rw2` effect to specify the values of the binned covariate at which we will like to do predictions (i.e., over the whole domain). Otherwise, the model would only look at the values of the binned covariate available in the data input.
-:::
+<!-- ::: {.callout-note collapse="true"} -->
 
-Next we run the model (note that we have used Empirical Bayes integration strategy for computational purpose, see @gómez-rubio2020 for further details):
+<!-- Notice that we have used the `values` argument when defining the `rw2` effect to specify the values of the binned covariate at which we will like to do predictions (i.e., over the whole domain). Otherwise, the model would only look at the values of the binned covariate available in the data input. -->
+
+<!-- ::: -->
+
+<!-- Next we run the model (note that we have used Empirical Bayes integration strategy for computational purpose, see @gómez-rubio2020 for further details): -->
 
 ```{r}
 #| code-fold: false
 #| eval: false
+#| echo: false
 
 model_spat <- inla(formula_spat, # the formula
                    data=data_list,  # the data list
