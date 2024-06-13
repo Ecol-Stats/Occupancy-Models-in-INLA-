@@ -554,7 +554,6 @@ samples3 = inla.posterior.sample(1000, model3)
 
 
 load(here::here('data_SCV_model/pred-coordinates.rda'))
-#load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/pred-coordinates.rda")
 
 coords.0.sf <- st_as_sf(as.data.frame(coords.0),
                         coords = c("X", "Y"),
@@ -567,8 +566,9 @@ idx = apply(aa,1,function(x)
 coords.0.sf$bcr  = bcrs.ne.grouped$BCR[idx]
 coords.0.sf$bcr_idx  = idx
 
-
+coords.0.sf = coords.0.sf %>% filter(!is.na(bcr_idx))
 A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
+
 ```
 
 
@@ -615,13 +615,31 @@ aa3 = inla.posterior.sample.eval(func3, samples3, year = year)
 dd = data.frame(x = coords.0[,1],
                 y = coords.0[,2],
                 z = apply(aa,1,mean),
+                z1_1 = apply(aa,1,quantile, 0.025),
+               z1_2 = apply(aa,1,quantile, 0.975),
+
                 z2 = apply(aa2,1,mean),
-                z3 = apply(aa3,1,mean))
+                z2_1 = apply(aa2,1,quantile, 0.025),
+                z2_2 = apply(aa2,1,quantile, 0.975),
+
+                z3 = apply(aa3,1,mean),
+                z3_1 = apply(aa3,1,quantile, 0.025),
+                z3_2 = apply(aa3,1,quantile, 0.975) ) %>%
+  mutate(check1 = case_when(z1_2<0 ~ -1,
+                            z1_1>0 ~ 1,
+                            z1_1<=0 & z1_2>=0 ~ 0),
+         check2 = case_when(z2_2<0 ~ -1,
+                            z2_1>0 ~ 1,
+                            z2_1<=0 & z2_2>=0 ~ 0),
+         check3 = case_when(z3_2<0 ~ -1,
+                            z3_1>0 ~ 1,
+                            z3_1<=0 & z3_2>=0 ~ 0) )
+
 pred.stars <- st_as_stars(data.frame(dd), dims = c('x', 'y'))
 lims = range(c(dd$z,dd$z2, dd$z3), na.rm = T)
 
 
-pred.stars.long = dd |> dplyr::select(c(x,y,z1_1,z1_2,z1_3,check1,check2,check3)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
+pred.stars.long = dd |> dplyr::select(c(x,y,z1,z1,z1,check1,check2,check3)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
 
 trend1 <-  dd |> 
   dplyr::select(c(x,y,z1_1,z1_2,z1_3)) |>

@@ -30,8 +30,9 @@ library(spOccupancy)
 library(scico)
 library(patchwork)
 library(kableExtra)
-  library(raster)
 library(sf)
+library(terra)
+library(tidyterra)
 
 rm(list = ls())
 
@@ -97,8 +98,9 @@ Xdet = cbind(1, Xdet.day[,1], Xdet.tod[,1],
 
 Xocc = data.frame(x = rep(revi.data$coords[,1],9),
                   y = rep(revi.data$coords[,2],9),
+                  elev = rep(revi.data$occ.covs$elev,9),
                   scale_elev = scale(rep(revi.data$occ.covs$elev,9)),
-                 scale_elev2 = scale(rep(revi.data$occ.covs$elev,9)^2),
+                 scale_elev2 = scale(rep(revi.data$occ.covs$elev,9))^2,
                   site = rep(1:373,9),
                   time = rep(1:9,each = 373),
                   Int_occ = 1) %>%
@@ -116,31 +118,37 @@ Xocc = data.frame(x = rep(revi.data$coords[,1],9),
 
 ```{r}
 
+r = rast(nrows=100, ncols=100, 
+                                            xmin=274, xmax=284,
+                                            ymin=4866, ymax=4872)
 
+elev_raster= resample(terra::rast(data.frame(x =  hbefElev$Easting/1000,
+                                    y = hbefElev$Northing/1000,
+                                    z =  hbefElev$val)), r)
 
-elev_raster= raster::rasterFromXYZ(data.frame(x = hbefElev$Easting/1000,
-                                              y = hbefElev$Northing/1000,
-                                              z = hbefElev$val))
-
-elev_raster2 = resample(elev_raster, raster(nrows=100, ncols=100, 
-                                            xmn=274, xmx=284,
-                                            ymn=4866, ymx=4872, 
-                                            vals=NULL))
+elev_raster2 = elev_raster
 values(elev_raster2) <- (values(elev_raster2) - mean(revi.data$occ.covs$elev)) / sd(revi.data$occ.covs$elev)
 
-elev_raster22 = resample(elev_raster, raster(nrows=100, ncols=100, 
-                                             xmn=274, xmx=284,
-                                             ymn=4866, ymx=4872, 
-                                             vals=NULL))
-values(elev_raster22) <- (values(elev_raster22^2) - 
-                            mean(revi.data$occ.covs$elev^2)) / 
-  sd(revi.data$occ.covs$elev^2)
+elev_raster22 = resample(elev_raster, rast(nrows=100, ncols=100, 
+                                            xmin=274, xmax=284,
+                                            ymin=4866, ymax=4872))
+values(elev_raster22) <- values(elev_raster2^2)
 
 
-pred_df = data.frame(x = rep(coordinates(elev_raster2)[,1],9),
-                     y = rep(coordinates(elev_raster2)[,2],9),
+all_elev = inla.group(c(Xocc$elev, values(elev_raster)))
+val_elev = sort(na.omit(unique(all_elev)))
+Xocc$group_elev = all_elev[1:dim(Xocc)[1]]
+
+elev_group_raster = elev_raster
+values(elev_group_raster) <- all_elev[-c(1:dim(Xocc)[1])]
+
+
+
+pred_df = data.frame(x = rep(crds(elev_raster2, na.rm = F)[,1],9),
+                     y = rep(crds(elev_raster2, na.rm = F)[,2],9),
                      scale_elev = rep(values(elev_raster2),9),
-                     scale_elev2 = rep(values(elev_raster2),9),
+                     scale_elev2 = rep(values(elev_raster22),9),
+                     group_elev = rep(values(elev_group_raster),9),
                      time = rep(c(1:9), each= length(values(elev_raster2)))) %>%
   dplyr::filter(!is.na(scale_elev))
 
@@ -301,7 +309,7 @@ formula3_3 <- inla.mdata(Y,X) ~
   -1   + Int_occ + 
   scale_elev +
   scale_elev2 + 
-#  f(group_elev, model = "rw2", values = val_elev) + 
+ # f(group_elev, model = "rw2", values = val_elev) + 
   f(time, model = "iid") + 
   f(spatialfield, 
     model=spde, 
@@ -345,7 +353,7 @@ sample3 = inla.posterior.sample(1000, model3_3)
 
 ## Results
 
-### Model comparisson
+### Model comparison
 
 
 ```{r}
@@ -424,6 +432,16 @@ table = data.frame(elapsed_Time = c(time0["elapsed"], time2["elapsed"], time3["e
  rownames(table) = paste("Model", c(1:3))
  kable(table)
  
+ 
+#tt = round(table,2)
+#cbind(row.names(table),paste(tt[,1],"(",tt[,2],",",tt[,3],")", sep = ""))
+
+tt = round(rbind(model1$summary.fixed[,c(1,3,5)],
+      model3_2$summary.fixed[,c(1,3,5)],
+      model3_3$summary.fixed[,c(1,3,5)]),2)
+cbind(row.names(tt),paste(tt[,1],"(",tt[,2],",",tt[,3],")", sep = "")) 
+ 
+ 
 ```
 
 
@@ -451,7 +469,8 @@ func1 = function(...)
 func3_2 = function(...)
 {
   aa = (Int_occ + 
-           scale_elev2 * pred1$scale_elev2 + 
+           scale_elev * pred1$scale_elev +
+          scale_elev2 * pred1$scale_elev2 +
            time[pred1$time] +
            (A3_2 %*% spatialfield)[,1] )
   aa
@@ -459,7 +478,8 @@ func3_2 = function(...)
 func3_3 = function(...)
 {
   aa = (Int_occ + 
-           scale_elev2 * pred1$scale_elev2 + 
+           scale_elev * pred1$scale_elev +
+          scale_elev2 * pred1$scale_elev2 +
            time[pred1$time] +
            (A3_3 %*% spatialfield)[,1] 
   )
@@ -469,9 +489,6 @@ fix1 = inla.posterior.sample.eval(func1, sample1)
 fix3_2 = inla.posterior.sample.eval(func3_2, sample2)
 fix3_3 = inla.posterior.sample.eval(func3_3, sample3)
 
-fix1 = inla.posterior.sample.eval(func1, sample1)
-fix3_2 = inla.posterior.sample.eval(func3_2, sample2)
-fix3_3 = inla.posterior.sample.eval(func3_3, sample3)
 
 pred2 = pred1 %>%
   mutate(sd1 = apply(fix1,1,sd),
@@ -561,7 +578,7 @@ ggsave(filename = "space_time_Occ_qunatiles.pdf",dpi = 300,width = 4000,units = 
 ## Parameters for the detection part of the model
 
 ```{r}
-# detecion paramters ------------------------------------------------------
+# detection paramters ------------------------------------------------------
 
 npar = 3
 tab1 = rbind(model1$summary.hyperpar[1:npar,c(1,3,5)],
@@ -575,6 +592,10 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
   index = c("Model 1" = npar, "Model 2" = npar, "Model 3" = npar))
 
 
+
+#tt = round(tab1,2)
+#cbind(row.names(tab1),paste(tt[,1],"(",tt[,2],",",tt[,3],")", sep = ""))
+
 ```
 
 
@@ -585,7 +606,7 @@ kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
 #| 
 library(spOccupancy)
 
-revi.sp.occ.formula <- ~ scale(elev) + I(scale(elev)^2) + scale(years)
+revi.sp.occ.formula <- ~ scale(elev) + scale(elev)^2 + scale(years)
 revi.sp.det.formula <- ~ scale(day) +  scale(tod)
 
 
