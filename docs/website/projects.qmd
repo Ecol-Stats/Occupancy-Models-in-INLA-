@@ -2,8 +2,8 @@
 title: "Data Simulation"
 number-sections: true
 execute: 
-  eval: true
   
+  eval: true
 format:
   html: 
     code-link: true
