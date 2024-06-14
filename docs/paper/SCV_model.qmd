@@ -4,7 +4,7 @@ format:
   html:
     embed-resources: true
 execute: 
-  echo: false
+  echo: true
   warning: false
   error: true
 editor_options: 
@@ -14,8 +14,11 @@ editor:
     wrap: 72
 ---
 
+This code reproduces the case study ""
+"Spatio-temporal Occupancy Models with INLA". The dataset and part of the code for preparing the data, is taken from the supplementary material of the paper @Dose
+
+
 ```{r}
-#| echo: false
 #| eval: true
 #| label: load_library
 
@@ -29,6 +32,9 @@ library(sf)
 library(stars)
 library(patchwork)
 library(kableExtra)
+library(scales)
+library(tidyterra)
+
 rm(list = ls())
 
 
@@ -41,7 +47,6 @@ theme_maps = theme(axis.title.x=element_blank(),
 ```
 
 ```{r}
-#| echo: false
 #| label: load_data
 
 # load data ---------------------------------------------
@@ -79,7 +84,6 @@ obs_index = data.frame(n_species = as.vector(N_species_obs2)/5,
 ```
 
 ```{r}
-#| echo: false
 #| label: choose_species
 
 # choose the species
@@ -109,7 +113,6 @@ data.list$coords <- data.list$coords[range.ind[sp.indx, ] == 1, ]
 ```
 
 ```{r}
-#| echo: false
 #| label: shape_files
 #| message: false
 coords.sf <- st_as_sf(as.data.frame(data.list$coords),
@@ -228,7 +231,6 @@ Xocc %>%
 # Set up mesh and SPDE
 
 ```{r}
-#| echo: true
 #| label: mesh
 
 # set up mesh -------------------------------------------------------------
@@ -567,12 +569,14 @@ coords.0.sf$bcr  = bcrs.ne.grouped$BCR[idx]
 coords.0.sf$bcr_idx  = idx
 
 coords.0.sf = coords.0.sf %>% filter(!is.na(bcr_idx))
-A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
+A_pred = inla.spde.make.A(mesh, st_coordinates(coords.0.sf))
 
 ```
 
 
 ## Temporal trends
+
+Here are plots of the spatial temporal trends according to the three models.
 
 
 ```{r}
@@ -580,40 +584,34 @@ A_pred = inla.spde.make.A(mesh, as.matrix(coords.0))
 
 func = function(..., year)
 {
-  fix = Int_occ + scale_year * sort(unique(Xocc$scale_year))[year] 
-  spat = (A_pred %*% spatialfield)[,1]
-  return(c(fix + spat))
+  fix = scale_year
+  return(c(fix))
 }
 
 func2 = function(..., year)
 {
-  fix = Int_occ + scale_year * sort(unique(Xocc$scale_year))[year] 
-   # time[year]
-  spat = (A_pred %*% i1)[,1]
-  spat2 = (A_pred %*% i2)[,1] * sort(unique(Xocc$scale_year))[year]
-  return((fix + spat + spat2))
-  
+  fix =  scale_year 
+  spat2 = (A_pred %*% i2)[,1] 
+  return((fix  + spat2))
 }
 
 
 func3 = function(..., year)
 {
-  fix = Int_occ  + scale_year * sort(unique(Xocc$scale_year))[year] 
-   # time[year]
+  fix =  scale_year 
   time = bcr_idx[coords.0.sf$bcr_idx]
-  spat = (A_pred %*% spatialfield)[,1]
-  
-  return((fix + spat +time))
+
+  return((fix  +time))
   
 }
-year = 20
+year = 1
 aa = inla.posterior.sample.eval(func, samples, year = year)
 aa2 = inla.posterior.sample.eval(func2, samples2, year = year)
 aa3 = inla.posterior.sample.eval(func3, samples3, year = year)
 
 
-dd = data.frame(x = coords.0[,1],
-                y = coords.0[,2],
+dd = data.frame(x = st_coordinates(coords.0.sf)[,1],
+                y = st_coordinates(coords.0.sf)[,2],
                 z = apply(aa,1,mean),
                 z1_1 = apply(aa,1,quantile, 0.025),
                z1_2 = apply(aa,1,quantile, 0.975),
@@ -624,68 +622,57 @@ dd = data.frame(x = coords.0[,1],
 
                 z3 = apply(aa3,1,mean),
                 z3_1 = apply(aa3,1,quantile, 0.025),
-                z3_2 = apply(aa3,1,quantile, 0.975) ) %>%
-  mutate(check1 = case_when(z1_2<0 ~ -1,
-                            z1_1>0 ~ 1,
-                            z1_1<=0 & z1_2>=0 ~ 0),
-         check2 = case_when(z2_2<0 ~ -1,
-                            z2_1>0 ~ 1,
-                            z2_1<=0 & z2_2>=0 ~ 0),
-         check3 = case_when(z3_2<0 ~ -1,
-                            z3_1>0 ~ 1,
-                            z3_1<=0 & z3_2>=0 ~ 0) )
+                z3_2 = apply(aa3,1,quantile, 0.975) ) 
 
+
+dd = dd %>%
+  mutate(check1 = factor(case_when(z1_1>0 ~ 1,
+                            z1_2<0 ~ -1,
+                            z1_1<0 & z1_2 >0 ~ 0), levels = c("-1","0","1")),
+         check2 = factor(case_when(z2_1>0 ~ 1,
+                            z2_2<0 ~ -1,
+                            z2_1<0 & z2_2 >0 ~ 0), levels = c("-1","0","1")),
+         check3 = factor(case_when(z3_1>0 ~ 1,
+                            z3_2<0 ~ -1,
+                            z3_1<0 & z3_2 >0 ~ 0), levels = c("-1","0","1")))
+         
 pred.stars <- st_as_stars(data.frame(dd), dims = c('x', 'y'))
 lims = range(c(dd$z,dd$z2, dd$z3), na.rm = T)
 
 
-pred.stars.long = dd |> dplyr::select(c(x,y,z1,z1,z1,check1,check2,check3)) |> gather(key="model",value="dens",3:5) |>  st_as_stars(dims = c('x', 'y'))
+
 
 trend1 <-  dd |> 
-  dplyr::select(c(x,y,z1_1,z1_2,z1_3)) |>
-  dplyr::rename(`SVCM 1` = z1_1,
-         `SVCM 2` = z1_2,
-         `SVCM 3` = z1_3)|>
-  terra::rast() 
+  dplyr::select(c(x,y,z,z2,z3)) |>
+  dplyr::rename(`SVCM 1` = z,
+         `SVCM 2` = z2,
+         `SVCM 3` = z3) %>%
+  pivot_longer(-c(x,y))
   
 trend2 <-  dd |> 
   dplyr::select(c(x,y,check1,check2,check3)) |>
     dplyr::rename(`SVCM 1` = check1,
          `SVCM 2` = check2,
-         `SVCM 3` = check3) |>
+         `SVCM 3` = check3) %>%
+  pivot_longer(-c(x,y))
+  
 
-  terra::rast() 
-terra::values(trend2$`SVCM 1`) <- as.factor(terra::values(trend2$`SVCM 1`))
-terra::values(trend2$`SVCM 2`) <- as.factor(terra::values(trend2$`SVCM 2`))
-terra::values(trend2$`SVCM 3`) <- as.factor(terra::values(trend2$`SVCM 3`))
 
-library(scales)
-library(tidyterra)
-
-p1 = ggplot() + geom_spatraster(data=trend1)+ facet_wrap(~lyr, ncol = 3)  + coord_equal() +
-   geom_sf(data = bcrs.ne.grouped, alpha = 0, color = 'grey') +
-  geom_sf(data = within.sf.list[[which(sp.names == curr.sp)]], alpha = 0, col = 'black') + 
+trend1 %>% ggplot() + geom_tile(aes(x,y,fill = value)) +
+  facet_wrap(.~name) + coord_equal() +
   scale_fill_scico(name= "Mean \ntemporal trend" , limits = lims) + 
-  theme(text=element_text(family="serif", size=18),
-        legend.text = element_text(size=14),
-        axis.text.x = element_text(size=10, angle=45,vjust = 0.25),
-        axis.text.y = element_text(size=10))
+   theme_maps 
 
-p2 = ggplot() + geom_spatraster(data=trend2)+ facet_wrap(~factor(lyr), ncol = 3)  + coord_equal() +
-   geom_sf(data = bcrs.ne.grouped, alpha = 0, color = 'grey') +
-  geom_sf(data = within.sf.list[[which(sp.names == curr.sp)]], alpha = 0, col = 'black') +
-  scale_fill_manual(name="Change in trend",values = c("-1" = "maroon",
+
+trend2 %>% ggplot() + geom_tile(aes(x,y,fill = value)) +
+  facet_wrap(.~name) + coord_equal() +
+   scale_fill_manual(name="Change in trend",
+                    values = c("-1" = "maroon",
                                "0" = "grey",
                                "1" = "cyan4"),
                     labels = c("Negative", "No change", "Positive"), na.translate = F)+
-  theme( strip.text.x = element_blank(),
-         text=element_text(family="serif", size=18),
-        legend.text = element_text(size=14),
-        axis.text.x = element_text(size=10, angle=45,vjust = 0.25),
-        axis.text.y = element_text(size=10),
-        legend.spacing.x = unit(0.5, 'cm')) 
+   theme_maps 
 
-p1+p2+plot_layout(ncol=1)
 
 
 ```
