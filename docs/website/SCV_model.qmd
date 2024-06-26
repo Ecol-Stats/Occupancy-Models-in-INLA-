@@ -1,0 +1,629 @@
+---
+title:  "Occupacy model with space-varying time trends"
+format:
+  html:
+    embed-resources: true
+execute: 
+  echo: true
+  warning: false
+  error: true
+editor_options: 
+  chunk_output_type: console
+editor: 
+  markdown: 
+    wrap: 72
+bibliography: references.bib
+---
+
+This code reproduces the case study "Occupancy model with
+spatially-varying coefficients for the Gray Catbird" in "Spatio-temporal
+Occupancy Models with INLA". The dataset and part of the code for
+preparing the data, is taken from the supplementary material of
+[@doser2022]
+
+```{r}
+#| eval: true
+#| label: load_library
+#| warning: false
+#| message: false
+
+
+
+library(spOccupancy)
+library(tidyverse)
+library(INLA)
+library(inlabru)
+library(scico)
+library(sf)
+library(stars)
+library(patchwork)
+library(kableExtra)
+library(scales)
+library(tidyterra)
+
+rm(list = ls())
+
+
+theme_maps = theme(axis.title.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank(),
+                  axis.title.y=element_blank(),
+                  axis.text.y=element_blank(),
+                  axis.ticks.y=element_blank(),)
+```
+
+```{r}
+#| label: load_data
+
+# load data ---------------------------------------------
+load(here::here("data_SCV_model/spOcc-bbs-data.rda"))
+data.list_orig  = data.list
+# Loads the data.list object, which is formatted for spOccupancy.
+# Species info
+sp.names <- dimnames(data.list$y)[[1]]
+
+# Create an index for the observers
+# this is created as
+N_species_obs = apply(data.list$y,c(1,2,3), sum, na.rm = T) 
+N_species_counts = apply(data.list$y, c(1,2,3), function(x)
+  all(!is.na(x))) 
+
+
+N_species_obs[!N_species_counts] = NA
+N_species_obs2 = apply(N_species_obs,c(2,3), function(x) 
+{if((sum(x)==0 | all(is.na(x)))) return(NA)
+  else return(sum(x[x>0]))}) 
+
+
+species_observed = apply(data.list$y, c(1,2,3),function(x) ifelse(!all(x==0),1,0))
+species_observed = apply(species_observed,c(2,3), sum)
+obs_index = data.frame(n_species = as.vector(N_species_obs2)/5,
+                       tot_species = as.vector(species_observed),
+           obs = as.vector(data.list$det.covs$obs),
+           year = as.vector(data.list$det.covs$year.det),
+           site = rep(1:1846,20))%>% 
+  dplyr::filter(!is.na(n_species)) %>%
+  mutate(score = n_species/tot_species) %>%
+  group_by(obs) %>% summarise(score = mean(score)) 
+
+
+```
+
+```{r}
+#| label: choose_species
+#| warning: false
+#| message: false
+# choose the species
+
+# choose the species
+curr.sp <- 'GRCA'
+print(curr.sp)
+
+sp.indx <- which(sp.names == curr.sp)
+data.list$y <- data.list$y[sp.indx, , , ]
+# Only use locations within the breeding range of the species.
+# Load in species range information based on bird life data. 
+load(here::here("data_SCV_model/bird-life-processed.rda"))
+#load("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/bird-life-processed.rda")
+
+data.list$y <- data.list$y[range.ind[sp.indx, ] == 1, , ]
+data.list$occ.covs$years <- data.list$occ.covs$years[range.ind[sp.indx, ] == 1, ]
+data.list$occ.covs$BCR <- data.list$occ.covs$BCR[range.ind[sp.indx, ] == 1]
+data.list$det.covs$day <- data.list$det.covs$day[range.ind[sp.indx, ] == 1, ]
+data.list$det.covs$obs <- data.list$det.covs$obs[range.ind[sp.indx, ] == 1, ]
+data.list$det.covs$obs.first.year <- data.list$det.covs$obs.first.year[range.ind[sp.indx, ] == 1, ]
+data.list$det.covs$year.det <- data.list$det.covs$year.det[range.ind[sp.indx, ] == 1, ]
+data.list$coords <- data.list$coords[range.ind[sp.indx, ] == 1, ]
+
+
+
+```
+
+```{r}
+#| label: shape_files
+#| message: false
+#| warning: false
+#| message: false
+coords.sf <- st_as_sf(as.data.frame(data.list$coords),
+                      coords = c("X", "Y"),
+                      crs = "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=km +no_defs")
+usa <- st_as_sf(maps::map("state", fill = TRUE, plot = FALSE))
+usa.no.states <- st_as_sf(maps::map("usa", fill = TRUE, plot = FALSE))
+# Restrict to east of the 100th meridian
+usa.bbox <- st_bbox(usa)
+usa.bbox[1] <- -100
+usa.bbox <- as.vector(usa.bbox)
+sf_use_s2(FALSE)
+# Full data
+east.us <- st_crop(st_make_valid(usa), xmin = usa.bbox[1], ymin = usa.bbox[2], 
+                   xmax = usa.bbox[3], ymax = usa.bbox[4])
+east.us <- east.us %>%
+  st_transform(st_crs(coords.sf))
+east.us.no.states <- st_crop(st_make_valid(usa.no.states), xmin = usa.bbox[1], ymin = usa.bbox[2], 
+                             xmax = usa.bbox[3], ymax = usa.bbox[4])
+east.us.no.states <- east.us.no.states %>%
+  st_transform(st_crs(coords.sf))
+
+# BCRS, in case you want to visualize the maps with these
+bcrs <- st_read(dsn = here::here("data_SCV_model/BCR_Terrestrial/"), layer = "BCR_Terrestrial_master")
+#bcrs <- st_read(dsn = here::here("C:/Users/jb538u/NTNU/Occupancy_model_Git/Occupancy-Models-in-INLA-/docs/paper/data_SCV_model/BCR_Terrestrial/"), layer = "BCR_Terrestrial_master")
+
+
+
+my.proj <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=km +no_defs"
+coords.sf <- st_as_sf(as.data.frame(data.list$coords),
+                      coords = c("X", "Y"),
+                      crs = my.proj)
+
+bcrs.albers <- bcrs %>%
+  st_transform(crs = my.proj)
+
+# Clip bcrs to region of ne.states
+bcrs.ne <- st_intersection(st_make_valid(bcrs.albers), st_make_valid(east.us))
+
+bcrs.ne.grouped <- bcrs.ne %>%
+  group_by(BCR) %>%
+  summarize(geometry = st_union(geometry))
+
+
+all_bcr = c(data.list$occ.covs$BCR, bcrs.ne.grouped$BCR )
+all_bcr_idx = as.numeric(as.factor(all_bcr))
+
+
+```
+
+# Data for INLA
+
+```{r}
+
+nsites = dim(data.list$y)[1]
+Y = c()
+year = c()
+for(i in 1:20)
+{
+  Y = rbind(Y, data.list$y[,i,])
+  year = c(year, rep(1999+i, nsites))
+  #cat(length(counts), length(year), length(n_samples), "\n")
+}
+
+Xocc = data.frame(
+           year = year,
+           year_idx = year-min(year)+1,
+           obs = as.vector(data.list$det.covs$obs),
+           bcr = rep(data.list$occ.covs$BCR, 20),
+           bcr_idx = rep(all_bcr_idx[1:length(data.list$occ.covs$BCR)], 20),
+           obs = as.vector(data.list$det.covs$obs),
+           obs_first_year = as.vector(data.list$det.covs$obs.first.year),
+           Int_occ = 1,
+           scale_year = scale(year),
+           x  = rep(data.list$coords[,1],20),
+           y  = rep(data.list$coords[,2],20),
+           spatialfield = NA)  
+Xocc = left_join(Xocc, obs_index, by = "obs")
+
+# we have 3 covariates in the detection part
+
+Xdet = cbind(1, 
+             scale(as.vector(data.list$det.covs$day)), 
+             scale(as.vector(data.list$det.covs$day))^2,
+             1, 
+             scale(as.vector(data.list$det.covs$day)), 
+             scale(as.vector(data.list$det.covs$day))^2,
+             1, 
+             scale(as.vector(data.list$det.covs$day)), 
+             scale(as.vector(data.list$det.covs$day))^2,
+             1, 
+             scale(as.vector(data.list$det.covs$day)), 
+             scale(as.vector(data.list$det.covs$day))^2,
+             1, 
+             scale(as.vector(data.list$det.covs$day)), 
+             scale(as.vector(data.list$det.covs$day))^2
+             )
+
+keep = !apply(Y,1,function(x)all(is.na(x)))
+Y = Y[keep,]
+Xocc = Xocc[keep,]
+Xdet = Xdet[keep,]
+
+data_list = as.list(Xocc)
+data_list$Y = Y
+data_list$X = Xdet
+
+
+Xocc %>% 
+  ggplot()  +
+  geom_point(aes(x,y), size  = 0.5)  +
+ scale_color_viridis_c(na.value = "transparent") +
+  geom_sf(data = bcrs.ne.grouped, alpha = 0, col = 'grey') +
+  facet_wrap(.~year) +
+  xlab("") + ylab("") + theme_maps + 
+  ggtitle("Yearly detections per site")
+
+
+```
+
+# Set up mesh and SPDE
+
+```{r}
+#| label: mesh
+
+# set up mesh -------------------------------------------------------------
+
+mesh = inla.mesh.2d(loc= data.list$coords,
+                    max.edge = 300,
+                    cutoff = 30)
+mesh = inla.mesh.2d(loc= data.list$coords,
+              max.edge = c(300,600),
+              offset = c(100,500),
+              cutoff = 40)
+
+spde <- inla.spde2.pcmatern(
+  mesh = mesh, 
+  prior.range = c(800, 0.5),
+  prior.sigma = c(1, 0.5)) 
+
+ggplot() + inlabru::gg(mesh) + theme_maps + coord_equal()
+
+
+```
+
+# Model 1: fixed time trend
+
+Model for occurrences: $$
+\text{logit}(\pi_{st}) = \beta_0 + \beta_t\ t + \omega(s) 
+$$ Model for detection $$
+\text{logit}(p_s) = \alpha_0 + \alpha X(s)
+$$
+
+```{r}
+#| label: model_constant
+#| warning: false
+#| message: false
+
+# model with fixed covariate ----------------------------------------------
+
+A_sp <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(Xocc$x, Xocc$y))
+
+formula = inla.mdata(Y,X) ~ 
+  -1 + Int_occ + scale_year + 
+  f(spatialfield, model=spde,A.local = A_sp) 
+
+time1 = system.time(model <- inla(formula, #the formula
+                             data=data_list, 
+                             family= 'occupancy',  
+                             control.fixed =  list(prec = 1, prec.intercept = 1),
+                             control.compute = list(dic = TRUE, waic = TRUE, 
+                                                    config = TRUE), 
+                             control.inla = list(int.strategy = "eb"), 
+                             control.family = list(control.link = list(model = "logit"), 
+                                                   link.simple = "logit",
+                                                   hyper = list(beta1 = list(param = c(0,1),
+                                                                             initial = 0),
+                                                                beta2 = list(param = c(0,1),
+                                                                             initial = 0),
+                                                                beta3 = list(param = c(0,1),
+                                                                             initial = 0)))))
+                                                                            
+
+
+```
+
+# Model 2: Continuously varying time trend
+
+Model for occurrences: $$
+\text{logit}(\pi_{st}) = \beta_0 + \beta_t(s)\ t + \omega(s) 
+$$ Model for detection $$
+\text{logit}(p_s) = \alpha_0 + \alpha X(s)
+$$
+
+```{r}
+#| label: model_SPDE
+#| warning: false
+#| message: false
+A_sp1 <- inla.spde.make.A(mesh = mesh, 
+                         loc = cbind(Xocc$x, Xocc$y))
+A_sp2 <- inla.spde.make.A(mesh = mesh, 
+                          loc = cbind(Xocc$x, Xocc$y),
+                          weights = Xocc$scale_year)
+
+data_list$i1 <- rep(NA,length(data_list$spatialfield))
+data_list$i2 <- rep(NA,length(data_list$spatialfield))
+
+
+formula2 = inla.mdata(Y,X) ~ 
+  -1 + Int_occ + 
+  scale_year + 
+  f(i1, model=spde,A.local = A_sp1)  +
+  f(i2, model=spde, A.local = A_sp2) 
+ # f(time, model =  "iid") + 
+
+
+time2 = system.time(model2 <- inla(formula2, #the formula
+              data=data_list,  
+              family= 'occupancy',  
+              control.fixed =  list(prec = 1, prec.intercept = 1),
+              control.compute = list(dic = TRUE, waic = TRUE, 
+                                     config = TRUE), 
+              # verbose = TRUE,
+              control.inla = list(int.strategy = "eb"),
+              control.family = list(control.link = list(model = "logit"), 
+                                    link.simple = "logit",
+                                    hyper = list(beta1 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta2 = list(param = c(0,1/3),
+                                                              initial = 0),
+                                                 beta3 = list(param  = c(0,1/3),
+                                                              initial= 0)))))
+
+
+
+
+
+```
+
+# Model 3: Regional varying time trend
+
+Model for occurrences:
+
+$$
+\text{logit}(\pi_{st}) = \beta_0 + \beta_t(\text{bcr}_s)\ t + \omega(s) + \epsilon_t
+$$
+
+Model for detection
+
+$$
+\text{logit}(p_s) = \alpha_0 + \alpha X(s)
+$$
+
+```{r}
+#| warning: false
+#| message: false
+A_sp <- inla.spde.make.A(mesh = mesh,
+
+                         loc = cbind(Xocc$x, Xocc$y))
+
+
+formula3 = inla.mdata(Y,X) ~
+  -1 + Int_occ +
+  #f(time, model =  "iid") +
+  + scale_year + 
+  f(bcr_idx,scale_year, model="iid", values = sort(unique(all_bcr_idx)))  +
+  f(spatialfield,    model = spde, A.local = A_sp)
+
+model3 <- inla(formula3, #the formula
+
+               data=data_list,  #the data stack
+
+               family= 'occupancy',   #which family the data comes from
+
+               control.fixed =  list(prec = 1, prec.intercept = 1),
+
+               control.compute = list(dic = TRUE, waic = TRUE,
+
+                                      config = TRUE), #model diagnostics and config = TRUE gives you the GMRF
+
+               # verbose = TRUE,
+
+               control.inla = list(int.strategy = "eb"),#, cmin =0),
+
+               control.family = list(control.link = list(model = "logit"),
+
+                                     link.simple = "logit",
+
+                                     hyper = list(beta1 = list(param = c(0,1),
+
+                                                               initial = 0.5),
+
+                                                  beta2 = list(param = c(0,1),
+
+                                                               initial = 0),
+
+                                                  beta3 = list(param  = c(0,1),
+
+                                                               initial= 0),
+
+                                                  beta4 = list(param  = c(0,1),
+
+                                                               initial= 0))))
+
+```
+
+# Detection parameters
+
+```{r}
+
+tab1 = rbind(model$summary.hyperpar[1:3,c(1,3,5)],
+      model2$summary.hyperpar[1:3,c(1,3,5)],
+      model3$summary.hyperpar[1:3,c(1,3,5)])
+rownames(tab1) = c (c("Int detection1", "day1", "day^2_1"),
+                     c("Int detection2", "day2", "day^2_2"),
+                     c("Int detection3", "day3", "day^2_3"))
+
+kable(tab1, booktabs = TRUE, digits = 2) %>% pack_rows(
+  index = c("Model 1" = 3, "Model 2" = 3, "Model 3" = 3)
+)
+
+```
+
+# Model Comparison
+
+```{r}
+#| warning: false
+#| message: false
+# compute LGOCV scores
+
+df_sf <- Xocc %>% mutate(id = 1:nrow(Xocc)) %>% st_as_sf(coords =c("x","y"))
+buffer_25 <- st_buffer(df_sf, dist = 150) 
+
+loocv_m1 <- inla.group.cv(result = model,num.level.sets = 3)
+ULOOCV = mean(log(loocv_m1$cv),na.rm=T)
+
+loocv_m2 <- inla.group.cv(result = model2,num.level.sets = 3)
+ULOOCV2 = mean(log(loocv_m2$cv),na.rm=T)
+
+loocv_m3 <- inla.group.cv(result = model3,num.level.sets = 3)
+ULOOCV3 = mean(log(loocv_m3$cv),na.rm=T)
+
+score = c(ULOOCV,
+ULOOCV2,
+ULOOCV3)
+
+
+
+```
+
+```{r}
+#| echo: false
+ggplot()+geom_sf(data=df_sf)+
+  facet_wrap(~year)+
+  geom_sf(data=df_sf[loocv_m1$groups[[10000]]$idx,],color="orange")+
+  geom_sf(data = df_sf[10000,],colour="purple") +
+  geom_sf(data=buffer_25[10000,],color="red",alpha=0) 
+```
+
+```{r}
+#| echo: false
+tt = cbind(c(model$waic$waic,model2$waic$waic,model3$waic$waic),
+      c(model$mlik[1,1],model2$mlik[1,1],model3$mlik[1,1]),
+    score)
+rownames(tt) = paste("Model",1:3)
+colnames(tt) = c("WAIC",
+                 #"DIC",
+                 "MLIK",
+                 "LGOCV_score")
+kable(tt,  digits = 2) 
+
+```
+
+# Predictions
+
+```{r}
+# prediction dataset
+
+
+samples = inla.posterior.sample(1000, model)
+samples2 = inla.posterior.sample(1000, model2)
+samples3 = inla.posterior.sample(1000, model3)
+
+
+load(here::here('data_SCV_model/pred-coordinates.rda'))
+
+coords.0.sf <- st_as_sf(as.data.frame(coords.0),
+                        coords = c("X", "Y"),
+                        crs = st_crs(coords.sf))
+
+
+aa = (st_intersects(coords.0.sf, bcrs.ne.grouped, sparse = FALSE))
+idx = apply(aa,1,function(x) 
+   ifelse((!all(is.na(x))), which((x)),NA))
+coords.0.sf$bcr  = bcrs.ne.grouped$BCR[idx]
+coords.0.sf$bcr_idx  = idx
+
+coords.0.sf = coords.0.sf %>% filter(!is.na(bcr_idx))
+A_pred = inla.spde.make.A(mesh, st_coordinates(coords.0.sf))
+
+```
+
+## Temporal trends
+
+Here are plots of the spatial temporal trends according to the three
+models.
+
+```{r}
+
+
+func = function(..., year)
+{
+  fix = scale_year
+  return(c(fix))
+}
+
+func2 = function(..., year)
+{
+  fix =  scale_year 
+  spat2 = (A_pred %*% i2)[,1] 
+  return((fix  + spat2))
+}
+
+
+func3 = function(..., year)
+{
+  fix =  scale_year 
+  time = bcr_idx[coords.0.sf$bcr_idx]
+
+  return((fix  +time))
+  
+}
+year = 1
+aa = inla.posterior.sample.eval(func, samples, year = year)
+aa2 = inla.posterior.sample.eval(func2, samples2, year = year)
+aa3 = inla.posterior.sample.eval(func3, samples3, year = year)
+
+
+dd = data.frame(x = st_coordinates(coords.0.sf)[,1],
+                y = st_coordinates(coords.0.sf)[,2],
+                z = apply(aa,1,mean),
+                z1_1 = apply(aa,1,quantile, 0.025),
+               z1_2 = apply(aa,1,quantile, 0.975),
+
+                z2 = apply(aa2,1,mean),
+                z2_1 = apply(aa2,1,quantile, 0.025),
+                z2_2 = apply(aa2,1,quantile, 0.975),
+
+                z3 = apply(aa3,1,mean),
+                z3_1 = apply(aa3,1,quantile, 0.025),
+                z3_2 = apply(aa3,1,quantile, 0.975) ) 
+
+
+dd = dd %>%
+  mutate(check1 = factor(case_when(z1_1>0 ~ 1,
+                            z1_2<0 ~ -1,
+                            z1_1<0 & z1_2 >0 ~ 0), levels = c("-1","0","1")),
+         check2 = factor(case_when(z2_1>0 ~ 1,
+                            z2_2<0 ~ -1,
+                            z2_1<0 & z2_2 >0 ~ 0), levels = c("-1","0","1")),
+         check3 = factor(case_when(z3_1>0 ~ 1,
+                            z3_2<0 ~ -1,
+                            z3_1<0 & z3_2 >0 ~ 0), levels = c("-1","0","1")))
+         
+pred.stars <- st_as_stars(data.frame(dd), dims = c('x', 'y'))
+lims = range(c(dd$z,dd$z2, dd$z3), na.rm = T)
+
+
+
+
+trend1 <-  dd |> 
+  dplyr::select(c(x,y,z,z2,z3)) |>
+  dplyr::rename(`SVCM 1` = z,
+         `SVCM 2` = z2,
+         `SVCM 3` = z3) %>%
+  pivot_longer(-c(x,y))
+  
+trend2 <-  dd |> 
+  dplyr::select(c(x,y,check1,check2,check3)) |>
+    dplyr::rename(`SVCM 1` = check1,
+         `SVCM 2` = check2,
+         `SVCM 3` = check3) %>%
+  pivot_longer(-c(x,y))
+  
+
+
+trend1 %>% ggplot() + geom_tile(aes(x,y,fill = value)) +
+  facet_wrap(.~name) + coord_equal() +
+  scale_fill_scico(name= "Mean \ntemporal trend" , limits = lims) + 
+   theme_maps 
+
+
+trend2 %>% ggplot() + geom_tile(aes(x,y,fill = value)) +
+  facet_wrap(.~name) + coord_equal() +
+   scale_fill_manual(name="Change in trend",
+                    values = c("-1" = "maroon",
+                               "0" = "grey",
+                               "1" = "cyan4"),
+                    labels = c("Negative", "No change", "Positive"), na.translate = F)+
+   theme_maps 
+
+
+
+```
