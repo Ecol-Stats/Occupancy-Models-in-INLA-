@@ -762,7 +762,7 @@ The LGOCV is used to evaluate the predictive performance of each model and the l
 
 ```{r}
 #| code-fold: false
-
+#| warning: false
 lgocv_ssom = inla.group.cv(result = model_ssom, groups= Ii)
 lgocv_simple = inla.group.cv(result = model_simple, group.cv = lgocv_ssom)
 
@@ -790,7 +790,6 @@ data.frame(logssom = log_score_ssom, logsom = log_score_simple ) %>%
 Next, we illustrate how the following spatiotemporal occupancy model can be fitted using INLA:
 
 ```{=tex}
-
 \begin{align}
 z_{it} &\sim \mathrm{Bernoulli}(\psi_{it}) \nonumber \\
  \mathrm{logit}(\psi_{it}) &= \beta_0 + f_1(\mbox{x}_i) +  \omega(i,t) \nonumber \\
@@ -1356,7 +1355,6 @@ ggplot() + tidyterra::geom_spatraster(data=true_psi) +
 In this section we will fit the following SVC occupancy model:
 
 ```{=tex}
-
 \begin{align}
 z_{it} &\sim \mathrm{Bernoulli}(\psi_{it}) \nonumber \\
  \mathrm{logit}(\psi_{it}) &= \beta_0 + \beta_{1}(i) t + \omega(i)\nonumber \\
